@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generador de Órdenes de Compra</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <style>
+      .product-line {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.5rem;
+        align-items: start;
+      }
+      .product-inputs {
+        display: grid;
+        grid-template-columns: 3fr 1fr 1.5fr auto;
+        gap: 0.5rem;
+        align-items: center;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 text-gray-800 font-sans">
+    <div class="container mx-auto p-4 md:p-8">
+      <header class="mb-8 text-center">
+        <h1 class="text-4xl font-bold text-gray-700">
+          Generador de Órdenes de Compra
+        </h1>
+        <p class="text-gray-500 mt-2">
+          Completa el formulario para guardar el pedido en Google Sheets y
+          generar el PDF.
+        </p>
+      </header>
+
+      <div class="bg-white p-6 rounded-2xl shadow-lg mb-8 max-w-4xl mx-auto">
+        <h2 class="text-2xl font-semibold mb-4 border-b pb-2">
+          Agregar Nuevo Pedido
+        </h2>
+        <form id="new-order-form">
+          <div
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"
+          >
+            <div class="relative">
+              <input
+                type="text"
+                name="razonSocial"
+                id="razonSocial"
+                placeholder="Razón Social"
+                class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+                required
+                autocomplete="off"
+              />
+              <div
+                id="client-autocomplete-list"
+                class="absolute z-20 w-full bg-white border border-gray-300 rounded-b-lg mt-1 hidden max-h-60 overflow-y-auto"
+              ></div>
+            </div>
+            <input
+              type="text"
+              name="rut"
+              placeholder="RUT"
+              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              name="giro"
+              placeholder="Giro"
+              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              name="direccion"
+              placeholder="Dirección Cliente"
+              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              name="fono"
+              placeholder="Fono Cliente"
+              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              name="nombreContacto"
+              placeholder="Nombre Contacto"
+              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              name="fonoCorreo"
+              placeholder="Fono/Correo Contacto"
+              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="date"
+              name="fechaEntrega"
+              title="Fecha de Entrega"
+              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+            <input
+              type="text"
+              name="transporte"
+              placeholder="Transporte"
+              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              name="autorizador"
+              placeholder="Autorizado por"
+              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              name="condicionesPago"
+              placeholder="Condiciones de Pago"
+              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div
+            class="flex items-center gap-4 mb-4 p-4 bg-gray-50 rounded-lg border"
+          >
+            <label for="dollar-rate" class="font-semibold text-gray-600"
+              >Valor Dólar (CLP):</label
+            >
+            <input
+              type="number"
+              id="dollar-rate"
+              placeholder="Ej: 950.50"
+              class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
+              step="any"
+            />
+          </div>
+
+          <h3 class="text-xl font-semibold mb-2 mt-4 border-t pt-4">
+            Productos
+          </h3>
+          <div id="product-lines-container" class="space-y-4">
+            <!-- Las líneas de producto se agregarán aquí dinámicamente -->
+          </div>
+          <button
+            type="button"
+            id="add-product-btn"
+            class="mt-2 bg-blue-100 text-blue-700 font-semibold py-2 px-4 rounded-lg hover:bg-blue-200 transition-colors duration-300"
+          >
+            + Agregar Producto
+          </button>
+
+          <div class="text-right mt-6">
+            <button
+              type="submit"
+              id="submit-button"
+              class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-300"
+            >
+              Guardar Pedido y Generar PDF
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const productLinesContainer = document.getElementById(
+        'product-lines-container'
+      );
+      const addProductBtn = document.getElementById('add-product-btn');
+      const orderForm = document.getElementById('new-order-form');
+      const submitButton = document.getElementById('submit-button');
+      const dollarRateInput = document.getElementById('dollar-rate');
+
+      const razonSocialInput = document.getElementById('razonSocial');
+      const clientAutocompleteList = document.getElementById(
+        'client-autocomplete-list'
+      );
+
+      let clientsWithData = [];
+      let currentClientProducts = [];
+      const googleWebAppUrl =
+        'https://script.google.com/macros/s/AKfycby6dRXufxP2lVVn7S9SzmE_TMhji3l3IscJu-QnyYJjWC7Is-C7SOzxe7CsrziGTSRN7g/exec';
+
+      // --- Autocomplete Logic ---
+      async function fetchData() {
+        try {
+          const response = await fetch(googleWebAppUrl);
+          clientsWithData = await response.json();
+        } catch (error) {
+          console.error('Error fetching data for autocomplete:', error);
+        }
+      }
+
+      // Client Autocomplete
+      razonSocialInput.addEventListener('input', () => {
+        // When user types, reset the product suggestions
+        currentClientProducts = [];
+        const inputText = razonSocialInput.value.toLowerCase();
+        clientAutocompleteList.innerHTML = '';
+        if (!inputText) {
+          clientAutocompleteList.classList.add('hidden');
+          return;
+        }
+
+        const suggestions = clientsWithData.filter((client) =>
+          client.razonSocial.toLowerCase().includes(inputText)
+        );
+
+        if (suggestions.length > 0) {
+          suggestions.forEach((suggestion) => {
+            const div = document.createElement('div');
+            div.textContent = suggestion.razonSocial;
+            div.className = 'p-2 hover:bg-gray-200 cursor-pointer';
+            div.addEventListener('click', () => {
+              orderForm.razonSocial.value = suggestion.razonSocial;
+              orderForm.rut.value = suggestion.rut;
+              orderForm.giro.value = suggestion.giro;
+              orderForm.direccion.value = suggestion.direccion;
+              orderForm.fono.value = suggestion.fono;
+              // Store this client's products for product autocomplete
+              currentClientProducts = suggestion.products || [];
+              clientAutocompleteList.classList.add('hidden');
+            });
+            clientAutocompleteList.appendChild(div);
+          });
+          clientAutocompleteList.classList.remove('hidden');
+        } else {
+          clientAutocompleteList.classList.add('hidden');
+        }
+      });
+
+      // --- Product Line Logic ---
+      const addProductLine = () => {
+        const productLineId = `product-line-${Date.now()}`;
+        const productLineDiv = document.createElement('div');
+        productLineDiv.className = 'product-line';
+        productLineDiv.id = productLineId;
+
+        productLineDiv.innerHTML = `
+                <div class="product-inputs">
+                    <div class="relative w-full">
+                        <input type="text" name="descripcion" placeholder="Descripción" class="p-2 border rounded-lg w-full description-input" required autocomplete="off">
+                        <div class="absolute z-10 w-full bg-white border border-gray-300 rounded-b-lg mt-1 hidden max-h-48 overflow-y-auto product-autocomplete-list"></div>
+                    </div>
+                    <input type="number" name="cantidad" placeholder="Cantidad" class="p-2 border rounded-lg w-full" required step="any">
+                    <input type="number" name="valorUnitario" placeholder="Valor Unitario" class="p-2 border rounded-lg w-full" required step="any" title="Ingrese el valor en USD y luego presione 'a CLP'">
+                    <button type="button" class="convert-price-btn bg-green-500 text-white font-semibold py-2 px-3 rounded-lg hover:bg-green-600 text-xs">a CLP</button>
+                </div>
+                <button type="button" class="remove-product-btn bg-red-500 text-white font-bold w-8 h-8 rounded-full hover:bg-red-600 mt-1">X</button>
+            `;
+        productLinesContainer.appendChild(productLineDiv);
+
+        // Attach event listener for the new product line
+        const descInput = productLineDiv.querySelector('.description-input');
+        const prodAutocompleteList = productLineDiv.querySelector(
+          '.product-autocomplete-list'
+        );
+
+        descInput.addEventListener('input', () => {
+          const inputText = descInput.value.toLowerCase();
+          prodAutocompleteList.innerHTML = '';
+          if (!inputText || currentClientProducts.length === 0) {
+            prodAutocompleteList.classList.add('hidden');
+            return;
+          }
+
+          const suggestions = currentClientProducts.filter((product) =>
+            product.toLowerCase().includes(inputText)
+          );
+
+          if (suggestions.length > 0) {
+            suggestions.forEach((suggestion) => {
+              const div = document.createElement('div');
+              div.textContent = suggestion;
+              div.className = 'p-2 hover:bg-gray-200 cursor-pointer text-sm';
+              div.addEventListener('click', () => {
+                descInput.value = suggestion;
+                prodAutocompleteList.classList.add('hidden');
+              });
+              prodAutocompleteList.appendChild(div);
+            });
+            prodAutocompleteList.classList.remove('hidden');
+          } else {
+            prodAutocompleteList.classList.add('hidden');
+          }
+        });
+      };
+
+      // Hide all autocomplete lists when clicking elsewhere
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('.relative')) {
+          document
+            .querySelectorAll(
+              '.product-autocomplete-list, #client-autocomplete-list'
+            )
+            .forEach((list) => {
+              list.classList.add('hidden');
+            });
+        }
+      });
+
+      // Load data on page load
+      document.addEventListener('DOMContentLoaded', fetchData);
+
+      productLinesContainer.addEventListener('click', function (event) {
+        if (event.target.classList.contains('remove-product-btn')) {
+          event.target.closest('.product-line').remove();
+        }
+        if (event.target.classList.contains('convert-price-btn')) {
+          const dollarRate = parseFloat(dollarRateInput.value);
+          if (isNaN(dollarRate) || dollarRate <= 0) {
+            alert('Por favor, ingrese un valor de dólar válido.');
+            dollarRateInput.focus();
+            return;
+          }
+
+          const productInputs = event.target.closest('.product-inputs');
+          const unitValueInput = productInputs.querySelector(
+            '[name="valorUnitario"]'
+          );
+          const unitValueUSD = parseFloat(unitValueInput.value);
+
+          if (isNaN(unitValueUSD)) {
+            alert('Por favor, ingrese un valor unitario para convertir.');
+            unitValueInput.focus();
+            return;
+          }
+
+          const unitValueCLP = unitValueUSD * dollarRate;
+          unitValueInput.value = unitValueCLP.toFixed(2);
+        }
+      });
+
+      addProductBtn.addEventListener('click', addProductLine);
+      addProductLine();
+
+      // --- Form Submission Logic ---
+      orderForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        submitButton.disabled = true;
+        submitButton.innerText = 'Guardando...';
+
+        const formData = new FormData(orderForm);
+        const orderData = {
+          fechaEmision: new Date().toISOString().split('T')[0], // Se genera automáticamente
+          fechaEntrega: formData.get('fechaEntrega'),
+          nombreContacto: formData.get('nombreContacto'),
+          fonoCorreo: formData.get('fonoCorreo'),
+          razonSocial: formData.get('razonSocial'),
+          rut: formData.get('rut'),
+          giro: formData.get('giro'),
+          direccion: formData.get('direccion'),
+          fono: formData.get('fono'),
+          transporte: formData.get('transporte'),
+          autorizador: formData.get('autorizador'),
+          condicionesPago: formData.get('condicionesPago'),
+        };
+
+        const productsData = [];
+        const productLines =
+          productLinesContainer.querySelectorAll('.product-line');
+        productLines.forEach((line) => {
+          const descripcion = line.querySelector('[name="descripcion"]').value;
+          const cantidad = parseFloat(
+            line.querySelector('[name="cantidad"]').value
+          );
+          const valorUnitario = parseFloat(
+            line.querySelector('[name="valorUnitario"]').value
+          );
+          if (descripcion && !isNaN(cantidad) && !isNaN(valorUnitario)) {
+            productsData.push({ descripcion, cantidad, valorUnitario });
+          }
+        });
+
+        if (productsData.length === 0) {
+          alert('Debes agregar al menos un producto válido.');
+          submitButton.disabled = false;
+          submitButton.innerText = 'Guardar Pedido y Generar PDF';
+          return;
+        }
+
+        const payload = { ...orderData, products: productsData };
+
+        try {
+          const response = await fetch(googleWebAppUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            throw new Error(
+              `Error en la respuesta del servidor: ${response.status}`
+            );
+          }
+
+          const result = await response.json();
+
+          if (result.status === 'success') {
+            alert('¡Pedido guardado exitosamente en Google Sheets!');
+            generatePDFFromData(payload, result.orderNumber);
+            orderForm.reset();
+            productLinesContainer.innerHTML = '';
+            addProductLine();
+          } else {
+            throw new Error(
+              result.message || 'El script de Google devolvió un error.'
+            );
+          }
+        } catch (error) {
+          console.error('Error al guardar en Google Sheets:', error);
+          alert(
+            `Hubo un error al guardar el pedido. Revisa las instrucciones y la consola para más detalles.`
+          );
+        } finally {
+          submitButton.disabled = false;
+          submitButton.innerText = 'Guardar Pedido y Generar PDF';
+        }
+      });
+
+      // --- PDF Generation Logic ---
+      function generatePDFFromData(orderData, orderNum = 'PENDIENTE') {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // --- Header ---
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('PIETTRA', 14, 20);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text('CONCRETO ARQUITECTÓNICO', 14, 25);
+
+        doc.text('PIETTRA SPA', 14, 35);
+        doc.text('R.U.T. 77.057.227-4', 14, 39);
+        doc.text('Panamericana Norte 18.800, Lote 4', 14, 43);
+        doc.text('Lampa Santiago', 14, 47);
+        doc.text('Teléfono 9 9323 3304', 14, 51);
+
+        doc.rect(130, 15, 65, 20);
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(41, 128, 185); // Color azul
+        doc.text('ORDEN DE COMPRA', 135, 25);
+        doc.setTextColor(0, 0, 0); // Reset a negro
+        doc.setFontSize(14);
+        doc.text(`N° O-${orderNum}`, 145, 32);
+
+        // --- Info Blocks ---
+        doc.setFontSize(10);
+
+        // --- Left block: Client Info ---
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(41, 128, 185);
+        doc.text('EMITIDO PARA:', 14, 65);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        doc.text(orderData.razonSocial, 14, 70);
+        doc.text(`R.U.T. ${orderData.rut || ''}`, 14, 75);
+        doc.text(`Dirección: ${orderData.direccion || ''}`, 14, 80);
+        doc.text(`Teléfono: ${orderData.fono || ''}`, 14, 85);
+        doc.text(`Giro: ${orderData.giro || ''}`, 14, 90);
+
+        // --- Right block: Order Details ---
+        let yPos = 65;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Emisión:', 130, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(orderData.fechaEmision, 160, yPos);
+
+        yPos += 5;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Autorizado por:', 130, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(orderData.autorizador || '', 160, yPos);
+
+        yPos += 5;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Transporte:', 130, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(orderData.transporte || '', 160, yPos);
+
+        yPos += 5;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Condiciones de pago:', 130, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(orderData.condicionesPago || '', 160, yPos);
+
+        yPos += 5;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Contacto:', 130, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(orderData.nombreContacto || '', 160, yPos);
+
+        yPos += 5;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Cel./Email:', 130, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(orderData.fonoCorreo || '', 160, yPos);
+
+        yPos += 5;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Fecha de entrega:', 130, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(orderData.fechaEntrega || '', 160, yPos);
+
+        // --- Products Table ---
+        let subtotalGeneral = 0;
+        const tableBody = orderData.products.map((item) => {
+          const totalProducto = item.cantidad * item.valorUnitario;
+          subtotalGeneral += totalProducto;
+          return [
+            item.cantidad,
+            item.descripcion,
+            `$ ${item.valorUnitario.toLocaleString('es-CL')}`,
+            `$ ${totalProducto.toLocaleString('es-CL')}`,
+          ];
+        });
+
+        doc.autoTable({
+          startY: 110,
+          head: [['CANT.', 'DESCRIPCION', 'VALOR UNIT.', 'PRECIO']],
+          body: tableBody,
+          theme: 'grid',
+          headStyles: {
+            fillColor: [41, 128, 185],
+            textColor: 255,
+            fontStyle: 'bold',
+          },
+          styles: { fontSize: 9, cellPadding: 2 },
+        });
+
+        // --- Totals ---
+        let finalY = doc.autoTable.previous.finalY;
+        const iva = subtotalGeneral * 0.19;
+        const totalFinal = subtotalGeneral + iva;
+
+        const totalsStartY = finalY + 8;
+        doc.setFontSize(10);
+        doc.text('Subtotal Neto', 140, totalsStartY + 2);
+        doc.text(
+          `$ ${subtotalGeneral.toLocaleString('es-CL')}`,
+          180,
+          totalsStartY + 2,
+          { align: 'right' }
+        );
+        doc.text('19% IVA', 140, totalsStartY + 7);
+        doc.text(`$ ${iva.toLocaleString('es-CL')}`, 180, totalsStartY + 7, {
+          align: 'right',
+        });
+        doc.setFont('helvetica', 'bold');
+        doc.text('Total', 140, totalsStartY + 12);
+        doc.text(
+          `$ ${totalFinal.toLocaleString('es-CL')}`,
+          180,
+          totalsStartY + 12,
+          { align: 'right' }
+        );
+        doc.rect(130, totalsStartY - 2, 65, 18); // Rectangle around totals
+
+        // --- Firmas ---
+        const firmasY = totalsStartY + 28;
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.line(30, firmasY, 80, firmasY); // Linea para firma 1
+        doc.text('Firma Carlos Ortiz', 40, firmasY + 4);
+        doc.line(120, firmasY, 170, firmasY); // Linea para firma 2
+        doc.text('Firma Rolf Hoppe', 130, firmasY + 4);
+
+        // --- Footer / Observaciones ---
+        const obsY = firmasY + 15;
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text('OBSERVACIONES:', 18, obsY + 4);
+        doc.setFont('helvetica', 'normal');
+        doc.text(
+          'CORREO DE FACTURACION ELECTRONICA: intercambio@skualodte.cl',
+          18,
+          obsY + 8
+        );
+        doc.text(
+          'POR FAVOR CONFIRMAR RECEPCIÓN DE ESTE PEDIDO AL COMPRADOR/A',
+          18,
+          obsY + 12
+        );
+        doc.text(
+          'Dirección de despacho: Panamericana Norte 18.800, Lote 4 Lampa Santiago',
+          18,
+          obsY + 8
+        );
+        doc.text(
+          'Horario de recepción en bodega: Lunes a Jueves de 07:30 a 15:30, viernes de 07:30 a 14:30.',
+          18,
+          obsY + 8
+        );
+        doc.text(
+          'Para entregas fueras de horario por favor contactar a su comprador.',
+          18,
+          obsY + 8
+        );
+        doc.text(
+          'No se recibirán productos que no vengan con FACTURA y copia de la ORDEN de COMPRA correspondiente.',
+          18,
+          obsY + 8
+        );
+        doc.text(
+          'No se permite el ingreso a planta Piettra Spa, sin Elementos de Protección Personal (EPP) (casco, zapato de seguridad y chaleco reflectante). En el caso de transportistas de productos químicos, estos deben contar con elementos de control de derrames y extintor.',
+          18,
+          obsY + 8
+        );
+
+        doc.rect(14, obsY, 181, 16); // Rectangle around observations
+
+        doc.save(`Orden_de_Compra_${orderNum}.pdf`);
+      }
+    </script>
+  </body>
+</html>
