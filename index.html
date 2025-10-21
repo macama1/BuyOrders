@@ -139,7 +139,7 @@
             Productos
           </h3>
           <div id="product-lines-container" class="space-y-4">
-            <!-- Las líneas de producto se agregarán aquí dinámicamente -->
+            <!-- Product lines will be dynamically added here -->
           </div>
           <button
             type="button"
@@ -148,6 +148,17 @@
           >
             + Agregar Producto
           </button>
+
+          <div class="mt-6">
+            <h3 class="text-xl font-semibold mb-2 mt-4 border-t pt-4">
+              Observaciones
+            </h3>
+            <textarea
+              name="observaciones"
+              placeholder="Añadir observaciones a la orden de compra..."
+              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full h-24"
+            ></textarea>
+          </div>
 
           <div class="text-right mt-6">
             <button
@@ -185,15 +196,18 @@
       async function fetchData() {
         try {
           const response = await fetch(googleWebAppUrl);
+          if (!response.ok) throw new Error('Failed to fetch data');
           clientsWithData = await response.json();
         } catch (error) {
           console.error('Error fetching data for autocomplete:', error);
+          alert(
+            'No se pudo cargar la lista de clientes. Verifique la URL del script y que esté implementado.'
+          );
         }
       }
 
       // Client Autocomplete
       razonSocialInput.addEventListener('input', () => {
-        // When user types, reset the product suggestions
         currentClientProducts = [];
         const inputText = razonSocialInput.value.toLowerCase();
         clientAutocompleteList.innerHTML = '';
@@ -203,7 +217,7 @@
         }
 
         const suggestions = clientsWithData.filter((client) =>
-          client.razonSocial.toLowerCase().includes(inputText)
+          String(client.razonSocial).toLowerCase().includes(inputText)
         );
 
         if (suggestions.length > 0) {
@@ -217,7 +231,12 @@
               orderForm.giro.value = suggestion.giro;
               orderForm.direccion.value = suggestion.direccion;
               orderForm.fono.value = suggestion.fono;
-              // Store this client's products for product autocomplete
+              orderForm.nombreContacto.value = suggestion.nombreContacto;
+              orderForm.fonoCorreo.value = suggestion.fonoCorreo;
+              orderForm.transporte.value = suggestion.transporte;
+              orderForm.autorizador.value = suggestion.autorizador;
+              orderForm.condicionesPago.value = suggestion.condicionesPago;
+
               currentClientProducts = suggestion.products || [];
               clientAutocompleteList.classList.add('hidden');
             });
@@ -250,10 +269,13 @@
             `;
         productLinesContainer.appendChild(productLineDiv);
 
-        // Attach event listener for the new product line
         const descInput = productLineDiv.querySelector('.description-input');
         const prodAutocompleteList = productLineDiv.querySelector(
           '.product-autocomplete-list'
+        );
+        const cantidadInput = productLineDiv.querySelector('[name="cantidad"]');
+        const valorUnitarioInput = productLineDiv.querySelector(
+          '[name="valorUnitario"]'
         );
 
         descInput.addEventListener('input', () => {
@@ -265,16 +287,18 @@
           }
 
           const suggestions = currentClientProducts.filter((product) =>
-            product.toLowerCase().includes(inputText)
+            String(product.descripcion).toLowerCase().includes(inputText)
           );
 
           if (suggestions.length > 0) {
             suggestions.forEach((suggestion) => {
               const div = document.createElement('div');
-              div.textContent = suggestion;
+              div.textContent = suggestion.descripcion;
               div.className = 'p-2 hover:bg-gray-200 cursor-pointer text-sm';
               div.addEventListener('click', () => {
-                descInput.value = suggestion;
+                descInput.value = suggestion.descripcion;
+                cantidadInput.value = suggestion.lastCantidad;
+                valorUnitarioInput.value = suggestion.lastValorUnitario;
                 prodAutocompleteList.classList.add('hidden');
               });
               prodAutocompleteList.appendChild(div);
@@ -286,7 +310,6 @@
         });
       };
 
-      // Hide all autocomplete lists when clicking elsewhere
       document.addEventListener('click', function (e) {
         if (!e.target.closest('.relative')) {
           document
@@ -299,7 +322,6 @@
         }
       });
 
-      // Load data on page load
       document.addEventListener('DOMContentLoaded', fetchData);
 
       productLinesContainer.addEventListener('click', function (event) {
@@ -313,21 +335,17 @@
             dollarRateInput.focus();
             return;
           }
-
           const productInputs = event.target.closest('.product-inputs');
           const unitValueInput = productInputs.querySelector(
             '[name="valorUnitario"]'
           );
           const unitValueUSD = parseFloat(unitValueInput.value);
-
           if (isNaN(unitValueUSD)) {
             alert('Por favor, ingrese un valor unitario para convertir.');
             unitValueInput.focus();
             return;
           }
-
-          const unitValueCLP = unitValueUSD * dollarRate;
-          unitValueInput.value = unitValueCLP.toFixed(2);
+          unitValueInput.value = (unitValueUSD * dollarRate).toFixed(2);
         }
       });
 
@@ -342,7 +360,7 @@
 
         const formData = new FormData(orderForm);
         const orderData = {
-          fechaEmision: new Date().toISOString().split('T')[0], // Se genera automáticamente
+          fechaEmision: new Date().toISOString().split('T')[0],
           fechaEntrega: formData.get('fechaEntrega'),
           nombreContacto: formData.get('nombreContacto'),
           fonoCorreo: formData.get('fonoCorreo'),
@@ -354,23 +372,26 @@
           transporte: formData.get('transporte'),
           autorizador: formData.get('autorizador'),
           condicionesPago: formData.get('condicionesPago'),
+          observaciones: formData.get('observaciones'),
         };
 
         const productsData = [];
-        const productLines =
-          productLinesContainer.querySelectorAll('.product-line');
-        productLines.forEach((line) => {
-          const descripcion = line.querySelector('[name="descripcion"]').value;
-          const cantidad = parseFloat(
-            line.querySelector('[name="cantidad"]').value
-          );
-          const valorUnitario = parseFloat(
-            line.querySelector('[name="valorUnitario"]').value
-          );
-          if (descripcion && !isNaN(cantidad) && !isNaN(valorUnitario)) {
-            productsData.push({ descripcion, cantidad, valorUnitario });
-          }
-        });
+        productLinesContainer
+          .querySelectorAll('.product-line')
+          .forEach((line) => {
+            const descripcion = line.querySelector(
+              '[name="descripcion"]'
+            ).value;
+            const cantidad = parseFloat(
+              line.querySelector('[name="cantidad"]').value
+            );
+            const valorUnitario = parseFloat(
+              line.querySelector('[name="valorUnitario"]').value
+            );
+            if (descripcion && !isNaN(cantidad) && !isNaN(valorUnitario)) {
+              productsData.push({ descripcion, cantidad, valorUnitario });
+            }
+          });
 
         if (productsData.length === 0) {
           alert('Debes agregar al menos un producto válido.');
@@ -387,15 +408,8 @@
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload),
           });
-
-          if (!response.ok) {
-            throw new Error(
-              `Error en la respuesta del servidor: ${response.status}`
-            );
-          }
-
+          if (!response.ok) throw new Error(`Server error: ${response.status}`);
           const result = await response.json();
-
           if (result.status === 'success') {
             alert('¡Pedido guardado exitosamente en Google Sheets!');
             generatePDFFromData(payload, result.orderNumber);
@@ -404,11 +418,11 @@
             addProductLine();
           } else {
             throw new Error(
-              result.message || 'El script de Google devolvió un error.'
+              result.message || 'Google Script returned an error.'
             );
           }
         } catch (error) {
-          console.error('Error al guardar en Google Sheets:', error);
+          console.error('Error saving to Google Sheets:', error);
           alert(
             `Hubo un error al guardar el pedido. Revisa las instrucciones y la consola para más detalles.`
           );
@@ -429,7 +443,6 @@
         doc.text('PIETTRA SPA', 14, 20);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-
         doc.text('R.U.T. 77.057.227-4', 14, 26);
         doc.text(
           'Fabricación y Comercialización de Materiales para la Construcción',
@@ -439,20 +452,17 @@
         doc.text('Panamericana Norte 18.800, Lote 4', 14, 34);
         doc.text('Lampa Santiago', 14, 38);
         doc.text('Teléfono 9 9323 3304', 14, 42);
-
         doc.rect(130, 15, 65, 20);
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        doc.setTextColor(41, 128, 185); // Color azul
+        doc.setTextColor(41, 128, 185);
         doc.text('ORDEN DE COMPRA', 135, 25);
-        doc.setTextColor(0, 0, 0); // Reset a negro
+        doc.setTextColor(0, 0, 0);
         doc.setFontSize(14);
         doc.text(`N° ${orderNum}`, 145, 32);
 
         // --- Info Blocks ---
         doc.setFontSize(10);
-
-        // --- Left block: Client Info ---
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(41, 128, 185);
         doc.text('EMITIDO PARA:', 14, 65);
@@ -464,48 +474,43 @@
         doc.text(`Teléfono: ${orderData.fono || ''}`, 14, 85);
         doc.text(`Giro: ${orderData.giro || ''}`, 14, 90);
 
-        // --- Right block: Order Details ---
         let yPos = 65;
+        const detailsX = 120; // Adjusted
+        const valueX = 150; // Adjusted
         doc.setFont('helvetica', 'bold');
-        doc.text('Emisión:', 130, yPos);
+        doc.text('Emisión:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
-        doc.text(orderData.fechaEmision, 160, yPos);
-
+        doc.text(orderData.fechaEmision, valueX, yPos);
         yPos += 5;
         doc.setFont('helvetica', 'bold');
-        doc.text('Autorizado por:', 130, yPos);
+        doc.text('Autorizado por:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
-        doc.text(orderData.autorizador || '', 160, yPos);
-
+        doc.text(orderData.autorizador || '', valueX, yPos);
         yPos += 5;
         doc.setFont('helvetica', 'bold');
-        doc.text('Transporte:', 130, yPos);
+        doc.text('Transporte:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
-        doc.text(orderData.transporte || '', 160, yPos);
-
+        doc.text(orderData.transporte || '', valueX, yPos);
         yPos += 5;
         doc.setFont('helvetica', 'bold');
-        doc.text('Condiciones de pago:', 130, yPos);
+        doc.text('Condiciones de pago:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
-        doc.text(orderData.condicionesPago || '', 160, yPos);
-
+        doc.text(orderData.condicionesPago || '', valueX, yPos);
         yPos += 5;
         doc.setFont('helvetica', 'bold');
-        doc.text('Contacto:', 130, yPos);
+        doc.text('Contacto:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
-        doc.text(orderData.nombreContacto || '', 160, yPos);
-
+        doc.text(orderData.nombreContacto || '', valueX, yPos);
         yPos += 5;
         doc.setFont('helvetica', 'bold');
-        doc.text('Cel./Email:', 130, yPos);
+        doc.text('Cel./Email:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
-        doc.text(orderData.fonoCorreo || '', 160, yPos);
-
+        doc.text(orderData.fonoCorreo || '', valueX, yPos);
         yPos += 5;
         doc.setFont('helvetica', 'bold');
-        doc.text('Fecha de entrega:', 130, yPos);
+        doc.text('Fecha de entrega:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
-        doc.text(orderData.fechaEntrega || '', 160, yPos);
+        doc.text(orderData.fechaEntrega || '', valueX, yPos);
 
         // --- Products Table ---
         let subtotalGeneral = 0;
@@ -515,11 +520,10 @@
           return [
             item.cantidad,
             item.descripcion,
-            `$ ${item.valorUnitario.toLocaleString('es-CL')}`,
+            `$ ${Number(item.valorUnitario).toLocaleString('es-CL')}`,
             `$ ${totalProducto.toLocaleString('es-CL')}`,
           ];
         });
-
         doc.autoTable({
           startY: 110,
           head: [['CANT.', 'DESCRIPCION', 'VALOR UNIT.', 'PRECIO']],
@@ -533,90 +537,97 @@
           styles: { fontSize: 9, cellPadding: 2 },
         });
 
-        // --- Totals ---
+        // --- Footer Section ---
         let finalY = doc.autoTable.previous.finalY;
+        const footerStartY = finalY + 10;
+
+        // --- Right Column: Totals ---
         const iva = subtotalGeneral * 0.19;
         const totalFinal = subtotalGeneral + iva;
-
-        const totalsStartY = finalY + 8;
+        const totalsStartX = 125; // Adjusted
+        const totalsBoxHeight = 18;
         doc.setFontSize(10);
-        doc.text('Subtotal Neto', 140, totalsStartY + 2);
+        doc.text('Subtotal Neto', totalsStartX + 10, footerStartY + 2);
         doc.text(
           `$ ${subtotalGeneral.toLocaleString('es-CL')}`,
-          180,
-          totalsStartY + 2,
+          totalsStartX + 60,
+          footerStartY + 2,
           { align: 'right' }
         );
-        doc.text('19% IVA', 140, totalsStartY + 7);
-        doc.text(`$ ${iva.toLocaleString('es-CL')}`, 180, totalsStartY + 7, {
-          align: 'right',
-        });
+        doc.text('19% IVA', totalsStartX + 10, footerStartY + 7);
+        doc.text(
+          `$ ${iva.toLocaleString('es-CL')}`,
+          totalsStartX + 60,
+          footerStartY + 7,
+          { align: 'right' }
+        );
         doc.setFont('helvetica', 'bold');
-        doc.text('Total', 140, totalsStartY + 12);
+        doc.text('Total', totalsStartX + 10, footerStartY + 12);
         doc.text(
           `$ ${totalFinal.toLocaleString('es-CL')}`,
-          180,
-          totalsStartY + 12,
+          totalsStartX + 60,
+          footerStartY + 12,
           { align: 'right' }
         );
-        doc.rect(130, totalsStartY - 2, 65, 18); // Rectangle around totals
+        doc.rect(totalsStartX, footerStartY - 2, 65, totalsBoxHeight);
+
+        // --- Left Column: User Observations ---
+        let observationsBoxHeight = 0;
+        if (orderData.observaciones) {
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'bold');
+          doc.text('OBSERVACIONES:', 14, footerStartY);
+          doc.setFont('helvetica', 'normal');
+          const obsLines = doc.splitTextToSize(orderData.observaciones, 105);
+          const textHeight = obsLines.length * 3.5;
+          observationsBoxHeight = textHeight + 10 > 26 ? textHeight + 10 : 26;
+          doc.text(obsLines, 14, footerStartY + 4);
+          doc.rect(12, footerStartY - 2, 110, observationsBoxHeight);
+        }
 
         // --- Firmas ---
-        const firmasY = totalsStartY + 28;
+        const tallestBoxHeight = Math.max(
+          observationsBoxHeight,
+          totalsBoxHeight
+        );
+        const firmasY = footerStartY + tallestBoxHeight + 15; // Adjusted
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.line(30, firmasY, 80, firmasY); // Linea para firma 1
+        doc.line(30, firmasY, 80, firmasY);
         doc.text('Firma Carlos Ortiz', 40, firmasY + 4);
-        doc.line(120, firmasY, 170, firmasY); // Linea para firma 2
+        doc.line(120, firmasY, 170, firmasY);
         doc.text('Firma Rolf Hoppe', 130, firmasY + 4);
 
-        // --- Footer / Observaciones ---
-        const obsY = firmasY + 15;
+        // --- Static Observations ---
+        const staticObsY = firmasY + 15;
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
-        doc.text('OBSERVACIONES:', 18, obsY + 4);
+        doc.text('OBSERVACIONES:', 14, staticObsY + 4); // Aligned to the left
         doc.setFont('helvetica', 'normal');
-        doc.text(
+
+        const staticText = [
           'CORREO DE FACTURACION ELECTRONICA: intercambio@skualodte.cl',
-          18,
-          obsY + 8
-        );
-        doc.text(
           'POR FAVOR CONFIRMAR RECEPCIÓN DE ESTE PEDIDO AL COMPRADOR/A',
-          18,
-          obsY + 12
-        );
-        doc.text(
           'Dirección de despacho: Panamericana Norte 18.800, Lote 4 Lampa Santiago',
-          18,
-          obsY + 16
-        );
-        doc.text(
           'Horario de recepción en bodega: Lunes a Jueves de 07:30 a 15:30, viernes de 07:30 a 14:30.',
-          18,
-          obsY + 20
-        );
-        doc.text(
           'Para entregas fueras de horario por favor contactar a su comprador.',
-          18,
-          obsY + 24
-        );
-        doc.text(
           'No se recibirán productos que no vengan con FACTURA y copia de la ORDEN de COMPRA correspondiente.',
-          18,
-          obsY + 28
-        );
-        doc.text(
           'No se permite el ingreso a planta Piettra Spa, sin Elementos de Protección Personal (EPP) (casco, zapato de seguridad y chaleco reflectante).',
-          18,
-          obsY + 32
-        );
-        doc.text(
           'En el caso de transportistas de productos químicos, estos deben contar con elementos de control de derrames y extintor.',
-          18,
-          obsY + 36
-        );
-        doc.rect(14, obsY, 184, 40); // Rectangle around observations
+        ];
+
+        let currentY = staticObsY + 8;
+        let totalStaticTextHeight = 0;
+        staticText.forEach((line) => {
+          const splitLines = doc.splitTextToSize(line, 180); // Increased width
+          doc.text(splitLines, 14, currentY); // Aligned to the left
+          const blockHeight = splitLines.length * 3.5;
+          currentY += blockHeight;
+          totalStaticTextHeight += blockHeight;
+        });
+
+        const staticBoxHeight = totalStaticTextHeight + 6;
+        doc.rect(12, staticObsY, 186, staticBoxHeight); // Adjusted box
 
         doc.save(`Orden_de_Compra_${orderNum}.pdf`);
       }
