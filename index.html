@@ -426,16 +426,19 @@
         // --- Header ---
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        doc.text('PIETTRA', 14, 20);
+        doc.text('PIETTRA SPA', 14, 20);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text('CONCRETO ARQUITECTÓNICO', 14, 25);
 
-        doc.text('PIETTRA SPA', 14, 35);
-        doc.text('R.U.T. 77.057.227-4', 14, 39);
-        doc.text('Panamericana Norte 18.800, Lote 4', 14, 43);
-        doc.text('Lampa Santiago', 14, 47);
-        doc.text('Teléfono 9 9323 3304', 14, 51);
+        doc.text('R.U.T. 77.057.227-4', 14, 26);
+        doc.text(
+          'Fabricación y Comercialización de Materiales para la Construcción',
+          14,
+          30
+        );
+        doc.text('Panamericana Norte 18.800, Lote 4', 14, 34);
+        doc.text('Lampa Santiago', 14, 38);
+        doc.text('Teléfono 9 9323 3304', 14, 42);
 
         doc.rect(130, 15, 65, 20);
         doc.setFontSize(16);
@@ -444,7 +447,7 @@
         doc.text('ORDEN DE COMPRA', 135, 25);
         doc.setTextColor(0, 0, 0); // Reset a negro
         doc.setFontSize(14);
-        doc.text(`N° O-${orderNum}`, 145, 32);
+        doc.text(`N° ${orderNum}`, 145, 32);
 
         // --- Info Blocks ---
         doc.setFontSize(10);
@@ -586,30 +589,34 @@
         doc.text(
           'Dirección de despacho: Panamericana Norte 18.800, Lote 4 Lampa Santiago',
           18,
-          obsY + 8
+          obsY + 16
         );
         doc.text(
           'Horario de recepción en bodega: Lunes a Jueves de 07:30 a 15:30, viernes de 07:30 a 14:30.',
           18,
-          obsY + 8
+          obsY + 20
         );
         doc.text(
           'Para entregas fueras de horario por favor contactar a su comprador.',
           18,
-          obsY + 8
+          obsY + 24
         );
         doc.text(
           'No se recibirán productos que no vengan con FACTURA y copia de la ORDEN de COMPRA correspondiente.',
           18,
-          obsY + 8
+          obsY + 28
         );
         doc.text(
-          'No se permite el ingreso a planta Piettra Spa, sin Elementos de Protección Personal (EPP) (casco, zapato de seguridad y chaleco reflectante). En el caso de transportistas de productos químicos, estos deben contar con elementos de control de derrames y extintor.',
+          'No se permite el ingreso a planta Piettra Spa, sin Elementos de Protección Personal (EPP) (casco, zapato de seguridad y chaleco reflectante).',
           18,
-          obsY + 8
+          obsY + 32
         );
-
-        doc.rect(14, obsY, 181, 16); // Rectangle around observations
+        doc.text(
+          'En el caso de transportistas de productos químicos, estos deben contar con elementos de control de derrames y extintor.',
+          18,
+          obsY + 36
+        );
+        doc.rect(14, obsY, 184, 40); // Rectangle around observations
 
         doc.save(`Orden_de_Compra_${orderNum}.pdf`);
       }
