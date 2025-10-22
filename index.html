@@ -15,8 +15,9 @@
         align-items: start;
       }
       .product-inputs {
+        /* Adjusted grid columns to fit UMedida */
         display: grid;
-        grid-template-columns: 3fr 1fr 1.5fr auto;
+        grid-template-columns: 3fr 1fr 0.5fr 1.5fr auto; 
         gap: 0.5rem;
         align-items: center;
       }
@@ -330,6 +331,7 @@
         productLineDiv.className = 'product-line';
         productLineDiv.id = productLineId;
 
+        // Added input for UMedida
         productLineDiv.innerHTML = `
                 <div class="product-inputs">
                     <div class="relative w-full">
@@ -337,6 +339,7 @@
                         <div class="absolute z-10 w-full bg-white border border-gray-300 rounded-b-lg mt-1 hidden max-h-48 overflow-y-auto product-autocomplete-list"></div>
                     </div>
                     <input type="number" name="cantidad" placeholder="Cantidad" class="p-2 border rounded-lg w-full" required step="any">
+                    <input type="text" name="uMedida" placeholder="UM" class="p-2 border rounded-lg w-full"> 
                     <input type="number" name="valorUnitario" placeholder="Valor Unitario" class="p-2 border rounded-lg w-full" required step="any" title="Ingrese el valor en USD y luego presione 'a CLP'">
                     <button type="button" class="convert-price-btn bg-green-500 text-white font-semibold py-2 px-3 rounded-lg hover:bg-green-600 text-xs">a CLP</button>
                 </div>
@@ -352,6 +355,7 @@
         const valorUnitarioInput = productLineDiv.querySelector(
           '[name="valorUnitario"]'
         );
+        const uMedidaInput = productLineDiv.querySelector('[name="uMedida"]'); // Get UMedida input
 
         // Add listeners to update totals on input change
         cantidadInput.addEventListener('input', updateTotalsPreview);
@@ -378,6 +382,7 @@
               div.addEventListener('click', () => {
                 descInput.value = suggestion.descripcion;
                 cantidadInput.value = suggestion.lastCantidad;
+                uMedidaInput.value = suggestion.lastUMedida; // Autocomplete UMedida
                 valorUnitarioInput.value = suggestion.lastValorUnitario;
                 prodAutocompleteList.classList.add('hidden');
                 updateTotalsPreview(); // Update totals after autocomplete
@@ -469,16 +474,18 @@
             const cantidad = parseFloat(
               line.querySelector('[name="cantidad"]').value
             );
+            const uMedida = line.querySelector('[name="uMedida"]').value; // Get UMedida value
             const valorUnitario = parseFloat(
               line.querySelector('[name="valorUnitario"]').value
             );
-            if (descripcion && !isNaN(cantidad) && !isNaN(valorUnitario)) {
-              productsData.push({ descripcion, cantidad, valorUnitario });
+            // Include uMedida in validation and data push
+            if (descripcion && !isNaN(cantidad) && uMedida && !isNaN(valorUnitario)) {
+              productsData.push({ descripcion, cantidad, uMedida, valorUnitario });
             }
           });
 
         if (productsData.length === 0) {
-          alert('Debes agregar al menos un producto válido.');
+          alert('Debes agregar al menos un producto válido (con UM).');
           submitButton.disabled = false;
           submitButton.innerText = 'Guardar Pedido y Generar PDF';
           return;
@@ -528,7 +535,7 @@
         doc.text('PIETTRA SPA', 14, 20);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text('R.U.T. 77.057.227-4', 14, 26);
+        doc.text('RUT: 77.057.227-4', 14, 26);
         doc.text('Fabricación y Comercialización de Materiales para la Construcción', 14, 30);
         doc.text('Panamericana Norte 18.800, Lote 4', 14, 34);
         doc.text('Lampa Santiago', 14, 38);
@@ -616,26 +623,37 @@
         const tableBody = orderData.products.map((item) => {
           const totalProducto = item.cantidad * item.valorUnitario;
           subtotalGeneral += totalProducto;
+          // Added item.uMedida to the row data
           return [
             item.cantidad,
+            item.uMedida, // New UM column data
             item.descripcion,
             `$ ${Number(item.valorUnitario).toLocaleString('es-CL')}`,
             `$ ${totalProducto.toLocaleString('es-CL')}`,
           ];
         });
         doc.autoTable({
-          startY: Math.max(leftColumnY, yPos) + 10, // Adjust startY based on the longer column
-          head: [['CANT.', 'DESCRIPCION', 'VALOR UNIT.', 'PRECIO']],
+          startY: Math.max(leftColumnY, yPos) + 10, 
+          // Added 'UM' to the header
+          head: [['Cant.', 'UM', 'Descripción', 'Valor Unit.', 'Precio']],
           body: tableBody,
           theme: 'grid',
           headStyles: {
-            fillColor: [41, 128, 185], // Keep header blue
-            textColor: 255,            // Header text white
+            fillColor: [41, 128, 185], 
+            textColor: 255,            
             fontStyle: 'bold',
           },
-          styles: { fontSize: 10, cellPadding: 3, textColor: [0, 0, 0] }, // Ensure body text is black
-          didParseCell: function(data) { // Ensure individual cell text is black
+          styles: { fontSize: 9.5, cellPadding: 3, textColor: [0, 0, 0] },
+          didParseCell: function(data) { 
               data.cell.styles.textColor = [0, 0, 0];
+          },
+          // Adjust column styles if needed to fit 'UM'
+          columnStyles: {
+            0: { cellWidth: 15 }, // CANT.
+            1: { cellWidth: 14 }, // UM (New)
+            2: { cellWidth: 'auto' }, // DESCRIPCION
+            3: { cellWidth: 25 }, // VALOR UNIT.
+            4: { cellWidth: 29 }  // PRECIO
           }
         });
 
