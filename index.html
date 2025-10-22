@@ -20,15 +20,46 @@
         gap: 0.5rem;
         align-items: center;
       }
+      /* Style for the totals preview */
+       #totals-preview {
+            border: 1px solid #e5e7eb; /* gray-200 */
+            border-radius: 0.5rem; /* rounded-lg */
+            padding: 1rem; /* p-4 */
+            background-color: #f9fafb; /* gray-50 */
+            margin-top: 1.5rem; /* mt-6 */
+       }
+       #totals-preview div {
+           display: flex;
+           justify-content: space-between;
+           margin-bottom: 0.5rem; /* mb-2 */
+           padding-bottom: 0.5rem; /* pb-2 */
+           border-bottom: 1px solid #e5e7eb; /* border-b border-gray-200 */
+       }
+        #totals-preview div:last-child {
+             margin-bottom: 0;
+             padding-bottom: 0;
+             border-bottom: none;
+        }
+       #totals-preview span:first-child {
+           font-weight: 600; /* font-semibold */
+           color: #4b5563; /* gray-600 */
+       }
+        #totals-preview span:last-child {
+             font-weight: 700; /* font-bold */
+             color: #1f2937; /* gray-800 */
+        }
+         #totals-preview div.total-final span:last-child {
+             font-size: 1.125rem; /* text-lg */
+         }
     </style>
   </head>
   <body class="bg-gray-100 text-gray-800 font-sans">
     <div class="container mx-auto p-4 md:p-8">
       <header class="mb-8 text-center">
-        <h1 class="text-4xl font-bold text-gray-700">
+        <h1 class="text-4xl font-bold text-black">
           Generador de Órdenes de Compra
         </h1>
-        <p class="text-gray-500 mt-2">
+        <p class="text-gray-800 mt-2">
           Completa el formulario para guardar el pedido en Google Sheets y
           generar el PDF.
         </p>
@@ -148,6 +179,23 @@
           >
             + Agregar Producto
           </button>
+          
+           <!-- Totals Preview Section -->
+           <div id="totals-preview" class="mt-6">
+                <h3 class="text-xl font-semibold mb-4 border-b pb-2">Vista Previa Totales</h3>
+                <div>
+                    <span>Subtotal Neto</span>
+                    <span id="preview-subtotal">$ 0</span>
+                </div>
+                <div>
+                    <span>19% IVA</span>
+                    <span id="preview-iva">$ 0</span>
+                </div>
+                <div class="total-final">
+                    <span>Total</span>
+                    <span id="preview-total">$ 0</span>
+                </div>
+            </div>
 
           <div class="mt-6">
             <h3 class="text-xl font-semibold mb-2 mt-4 border-t pt-4">
@@ -186,6 +234,12 @@
       const clientAutocompleteList = document.getElementById(
         'client-autocomplete-list'
       );
+      
+      // Elements for totals preview
+      const previewSubtotalEl = document.getElementById('preview-subtotal');
+      const previewIvaEl = document.getElementById('preview-iva');
+      const previewTotalEl = document.getElementById('preview-total');
+
 
       let clientsWithData = [];
       let currentClientProducts = [];
@@ -248,6 +302,27 @@
         }
       });
 
+      // --- Update Totals Preview Function ---
+      function updateTotalsPreview() {
+          let subtotalGeneral = 0;
+          const productLines = productLinesContainer.querySelectorAll('.product-line');
+          productLines.forEach(line => {
+              const cantidadInput = line.querySelector('[name="cantidad"]');
+              const valorUnitarioInput = line.querySelector('[name="valorUnitario"]');
+              const cantidad = parseFloat(cantidadInput.value) || 0;
+              const valorUnitario = parseFloat(valorUnitarioInput.value) || 0;
+              subtotalGeneral += cantidad * valorUnitario;
+          });
+
+          const iva = subtotalGeneral * 0.19;
+          const totalFinal = subtotalGeneral + iva;
+
+          previewSubtotalEl.textContent = `$ ${subtotalGeneral.toLocaleString('es-CL')}`;
+          previewIvaEl.textContent = `$ ${iva.toLocaleString('es-CL')}`;
+          previewTotalEl.textContent = `$ ${totalFinal.toLocaleString('es-CL')}`;
+      }
+
+
       // --- Product Line Logic ---
       const addProductLine = () => {
         const productLineId = `product-line-${Date.now()}`;
@@ -278,6 +353,11 @@
           '[name="valorUnitario"]'
         );
 
+        // Add listeners to update totals on input change
+        cantidadInput.addEventListener('input', updateTotalsPreview);
+        valorUnitarioInput.addEventListener('input', updateTotalsPreview);
+
+
         descInput.addEventListener('input', () => {
           const inputText = descInput.value.toLowerCase();
           prodAutocompleteList.innerHTML = '';
@@ -300,6 +380,7 @@
                 cantidadInput.value = suggestion.lastCantidad;
                 valorUnitarioInput.value = suggestion.lastValorUnitario;
                 prodAutocompleteList.classList.add('hidden');
+                updateTotalsPreview(); // Update totals after autocomplete
               });
               prodAutocompleteList.appendChild(div);
             });
@@ -308,6 +389,7 @@
             prodAutocompleteList.classList.add('hidden');
           }
         });
+        updateTotalsPreview(); // Update totals when a new line is added
       };
 
       document.addEventListener('click', function (e) {
@@ -327,6 +409,7 @@
       productLinesContainer.addEventListener('click', function (event) {
         if (event.target.classList.contains('remove-product-btn')) {
           event.target.closest('.product-line').remove();
+          updateTotalsPreview(); // Update totals when a line is removed
         }
         if (event.target.classList.contains('convert-price-btn')) {
           const dollarRate = parseFloat(dollarRateInput.value);
@@ -346,11 +429,12 @@
             return;
           }
           unitValueInput.value = (unitValueUSD * dollarRate).toFixed(2);
+          updateTotalsPreview(); // Update totals after conversion
         }
       });
 
       addProductBtn.addEventListener('click', addProductLine);
-      addProductLine();
+      addProductLine(); // Add the initial product line
 
       // --- Form Submission Logic ---
       orderForm.addEventListener('submit', async function (event) {
@@ -415,7 +499,7 @@
             generatePDFFromData(payload, result.orderNumber);
             orderForm.reset();
             productLinesContainer.innerHTML = '';
-            addProductLine();
+            addProductLine(); // Add back one initial line
           } else {
             throw new Error(
               result.message || 'Google Script returned an error.'
@@ -438,77 +522,92 @@
         const doc = new jsPDF();
 
         // --- Header ---
-        doc.setFontSize(16);
+        doc.setTextColor(0, 0, 0); // Set text color to black globally initially
+        doc.setFontSize(17);
         doc.setFont('helvetica', 'bold');
         doc.text('PIETTRA SPA', 14, 20);
-        doc.setFontSize(9);
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.text('R.U.T. 77.057.227-4', 14, 26);
-        doc.text(
-          'Fabricación y Comercialización de Materiales para la Construcción',
-          14,
-          30
-        );
+        doc.text('Fabricación y Comercialización de Materiales para la Construcción', 14, 30);
         doc.text('Panamericana Norte 18.800, Lote 4', 14, 34);
         doc.text('Lampa Santiago', 14, 38);
         doc.text('Teléfono 9 9323 3304', 14, 42);
+        
         doc.rect(130, 15, 65, 20);
-        doc.setFontSize(16);
+        doc.setFontSize(17);
         doc.setFont('helvetica', 'bold');
-        doc.setTextColor(41, 128, 185);
-        doc.text('ORDEN DE COMPRA', 135, 25);
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(14);
-        doc.text(`N° ${orderNum}`, 145, 32);
+        doc.text('ORDEN DE COMPRA', 133, 24);
+        doc.setFontSize(15);
+        doc.text(`N° ${orderNum}`, 153, 32);
 
         // --- Info Blocks ---
-        doc.setFontSize(10);
+        let leftColumnY = 65;
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.setTextColor(41, 128, 185);
-        doc.text('EMITIDO PARA:', 14, 65);
-        doc.setTextColor(0, 0, 0);
+        doc.text('EMITIDO PARA:', 14, leftColumnY);
+        leftColumnY += 6;
         doc.setFont('helvetica', 'normal');
-        doc.text(orderData.razonSocial, 14, 70);
-        doc.text(`R.U.T. ${orderData.rut || ''}`, 14, 75);
-        doc.text(`Dirección: ${orderData.direccion || ''}`, 14, 80);
-        doc.text(`Teléfono: ${orderData.fono || ''}`, 14, 85);
-        doc.text(`Giro: ${orderData.giro || ''}`, 14, 90);
+        
+        const leftColumnMaxWidth = 90;
+
+        doc.text(orderData.razonSocial, 14, leftColumnY);
+        leftColumnY += 6;
+        doc.text(`${orderData.rut || ''}`, 14, leftColumnY);
+        leftColumnY += 6;
+
+        if (orderData.direccion) {
+            const direccionLines = doc.splitTextToSize(`${orderData.direccion}`, leftColumnMaxWidth);
+            doc.text(direccionLines, 14, leftColumnY);
+            leftColumnY += direccionLines.length * 5; 
+        }
+
+        doc.text(`${orderData.fono || ''}`, 14, leftColumnY);
+        leftColumnY += 6;
+
+        if (orderData.giro) {
+            const giroLines = doc.splitTextToSize(`${orderData.giro}`, leftColumnMaxWidth);
+            doc.text(giroLines, 14, leftColumnY);
+            leftColumnY += giroLines.length * 5;
+        }
+
 
         let yPos = 65;
-        const detailsX = 120; // Adjusted
-        const valueX = 150; // Adjusted
+        const detailsX = 120; 
+        const valueX = 150; 
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.text('Emisión:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
         doc.text(orderData.fechaEmision, valueX, yPos);
-        yPos += 5;
+        yPos += 6;
         doc.setFont('helvetica', 'bold');
         doc.text('Autorizado por:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
         doc.text(orderData.autorizador || '', valueX, yPos);
-        yPos += 5;
+        yPos += 6;
         doc.setFont('helvetica', 'bold');
         doc.text('Transporte:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
         doc.text(orderData.transporte || '', valueX, yPos);
-        yPos += 5;
+        yPos += 6;
         doc.setFont('helvetica', 'bold');
         doc.text('Cond. de pago:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
         doc.text(orderData.condicionesPago || '', valueX, yPos);
-        yPos += 5;
+        yPos += 6;
         doc.setFont('helvetica', 'bold');
         doc.text('Contacto:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
         doc.text(orderData.nombreContacto || '', valueX, yPos);
-        yPos += 5;
+        yPos += 6;
         doc.setFont('helvetica', 'bold');
         doc.text('Cel./Email:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
         doc.text(orderData.fonoCorreo || '', valueX, yPos);
-        yPos += 5;
+        yPos += 6;
         doc.setFont('helvetica', 'bold');
-        doc.text('Fecha de entrega:', detailsX, yPos);
+        doc.text('Fecha entrega:', detailsX, yPos);
         doc.setFont('helvetica', 'normal');
         doc.text(orderData.fechaEntrega || '', valueX, yPos);
 
@@ -525,16 +624,19 @@
           ];
         });
         doc.autoTable({
-          startY: 110,
+          startY: Math.max(leftColumnY, yPos) + 10, // Adjust startY based on the longer column
           head: [['CANT.', 'DESCRIPCION', 'VALOR UNIT.', 'PRECIO']],
           body: tableBody,
           theme: 'grid',
           headStyles: {
-            fillColor: [41, 128, 185],
-            textColor: 255,
+            fillColor: [41, 128, 185], // Keep header blue
+            textColor: 255,            // Header text white
             fontStyle: 'bold',
           },
-          styles: { fontSize: 9, cellPadding: 2 },
+          styles: { fontSize: 10, cellPadding: 3, textColor: [0, 0, 0] }, // Ensure body text is black
+          didParseCell: function(data) { // Ensure individual cell text is black
+              data.cell.styles.textColor = [0, 0, 0];
+          }
         });
 
         // --- Footer Section ---
@@ -544,65 +646,65 @@
         // --- Right Column: Totals ---
         const iva = subtotalGeneral * 0.19;
         const totalFinal = subtotalGeneral + iva;
-        const totalsStartX = 125; // Adjusted
-        const totalsBoxHeight = 18;
-        doc.setFontSize(10);
-        doc.text('Subtotal Neto', totalsStartX + 10, footerStartY + 2);
+        const totalsStartX = 125;
+        const totalsBoxHeight = 20;
+        doc.setFontSize(11);
+        doc.text('Subtotal Neto', totalsStartX + 10, footerStartY + 4);
         doc.text(
           `$ ${subtotalGeneral.toLocaleString('es-CL')}`,
           totalsStartX + 60,
-          footerStartY + 2,
+          footerStartY + 4,
           { align: 'right' }
         );
-        doc.text('19% IVA', totalsStartX + 10, footerStartY + 7);
+        doc.text('19% IVA', totalsStartX + 10, footerStartY + 10);
         doc.text(
           `$ ${iva.toLocaleString('es-CL')}`,
           totalsStartX + 60,
-          footerStartY + 7,
+          footerStartY + 10,
           { align: 'right' }
         );
         doc.setFont('helvetica', 'bold');
-        doc.text('Total', totalsStartX + 10, footerStartY + 12);
+        doc.text('Total', totalsStartX + 10, footerStartY + 16);
         doc.text(
           `$ ${totalFinal.toLocaleString('es-CL')}`,
           totalsStartX + 60,
-          footerStartY + 12,
+          footerStartY + 16,
           { align: 'right' }
         );
-        doc.rect(totalsStartX, footerStartY - 2, 65, totalsBoxHeight);
+        doc.rect(totalsStartX, footerStartY - 2, 65, totalsBoxHeight + 2);
 
         // --- Left Column: User Observations ---
         let observationsBoxHeight = 0;
         if (orderData.observaciones) {
-          doc.setFontSize(8);
+          doc.setFontSize(9);
           doc.setFont('helvetica', 'bold');
-          doc.text('OBSERVACIONES:', 14, footerStartY);
+          doc.text('OBSERVACIONES:', 14, footerStartY + 2); 
           doc.setFont('helvetica', 'normal');
           const obsLines = doc.splitTextToSize(orderData.observaciones, 105);
-          const textHeight = obsLines.length * 3.5;
-          observationsBoxHeight = textHeight + 10 > 26 ? textHeight + 10 : 26;
-          doc.text(obsLines, 14, footerStartY + 4);
+          const textHeight = obsLines.length * 4;
+          observationsBoxHeight = textHeight + 12 > (totalsBoxHeight + 2) ? textHeight + 12 : (totalsBoxHeight + 2);
+          doc.text(obsLines, 14, footerStartY + 7);
           doc.rect(12, footerStartY - 2, 110, observationsBoxHeight);
         }
 
         // --- Firmas ---
         const tallestBoxHeight = Math.max(
           observationsBoxHeight,
-          totalsBoxHeight
+          (totalsBoxHeight + 2)
         );
-        const firmasY = footerStartY + tallestBoxHeight + 15; // Adjusted
-        doc.setFontSize(9);
+        const firmasY = footerStartY + tallestBoxHeight + 20;
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.line(30, firmasY, 80, firmasY);
-        doc.text('Firma Carlos Ortiz', 40, firmasY + 4);
+        doc.text('Firma Carlos Ortiz', 40, firmasY + 5);
         doc.line(120, firmasY, 170, firmasY);
-        doc.text('Firma Rolf Hoppe', 130, firmasY + 4);
+        doc.text('Firma Rolf Hoppe', 130, firmasY + 5);
 
         // --- Static Observations ---
-        const staticObsY = firmasY + 15;
-        doc.setFontSize(8);
+        const staticObsY = firmasY + 20;
+        doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
-        doc.text('OBSERVACIONES:', 14, staticObsY + 4); // Aligned to the left
+        doc.text('OBSERVACIONES:', 14, staticObsY + 5); 
         doc.setFont('helvetica', 'normal');
 
         const staticText = [
@@ -616,23 +718,27 @@
           'En el caso de transportistas de productos químicos, estos deben contar con elementos de control de derrames y extintor.',
         ];
 
-        let currentY = staticObsY + 8;
+        let currentY = staticObsY + 10;
         let totalStaticTextHeight = 0;
         staticText.forEach((line) => {
-          const splitLines = doc.splitTextToSize(line, 180); // Increased width
-          doc.text(splitLines, 14, currentY); // Aligned to the left
-          const blockHeight = splitLines.length * 3.5;
+          const splitLines = doc.splitTextToSize(line, 180);
+          doc.text(splitLines, 14, currentY); 
+          const blockHeight = splitLines.length * 4;
           currentY += blockHeight;
           totalStaticTextHeight += blockHeight;
         });
 
-        const staticBoxHeight = totalStaticTextHeight + 6;
-        doc.rect(12, staticObsY, 186, staticBoxHeight); // Adjusted box
+        const staticBoxHeight = totalStaticTextHeight + 8;
+        doc.rect(12, staticObsY, 186, staticBoxHeight);
 
-        doc.save(`Orden_de_Compra_${orderNum}.pdf`);
+        const clientNameForFile = orderData.razonSocial
+            .split(' ')[0]
+            .toLowerCase()
+            .replace(/[^a-z0-9]/gi, '');
+            
+        doc.save(`OC_${orderNum}_${clientNameForFile}.pdf`);
       }
     </script>
   </body>
 </html>
-
 
