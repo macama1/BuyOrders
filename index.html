@@ -315,12 +315,17 @@
               subtotalGeneral += cantidad * valorUnitario;
           });
 
-          const iva = subtotalGeneral * 0.19;
-          const totalFinal = subtotalGeneral + iva;
+          // Round values
+          const subtotalRounded = Math.round(subtotalGeneral);
+          const ivaRounded = Math.round(subtotalRounded * 0.19); // Calculate IVA on rounded subtotal
+          const totalFinalRounded = subtotalRounded + ivaRounded;
 
-          previewSubtotalEl.textContent = `$ ${subtotalGeneral.toLocaleString('es-CL')}`;
-          previewIvaEl.textContent = `$ ${iva.toLocaleString('es-CL')}`;
-          previewTotalEl.textContent = `$ ${totalFinal.toLocaleString('es-CL')}`;
+          // Format without decimals
+          const formatOptions = { style: 'currency', currency: 'CLP', minimumFractionDigits: 0, maximumFractionDigits: 0 };
+
+          previewSubtotalEl.textContent = subtotalRounded.toLocaleString('es-CL', formatOptions);
+          previewIvaEl.textContent = ivaRounded.toLocaleString('es-CL', formatOptions);
+          previewTotalEl.textContent = totalFinalRounded.toLocaleString('es-CL', formatOptions);
       }
 
 
@@ -433,8 +438,8 @@
             unitValueInput.focus();
             return;
           }
-          unitValueInput.value = (unitValueUSD * dollarRate).toFixed(2);
-          updateTotalsPreview(); // Update totals after conversion
+          unitValueInput.value = (unitValueUSD * dollarRate).toFixed(2); // Keep decimals here for potential intermediate calculations
+          updateTotalsPreview(); // Update totals preview (which will round)
         }
       });
 
@@ -480,7 +485,15 @@
             );
             // Include uMedida in validation and data push
             if (descripcion && !isNaN(cantidad) && uMedida && !isNaN(valorUnitario)) {
-              productsData.push({ descripcion, cantidad, uMedida, valorUnitario });
+              // Round total product price before sending
+              const totalProductoRounded = Math.round(cantidad * valorUnitario);
+              productsData.push({ 
+                  descripcion, 
+                  cantidad, 
+                  uMedida, 
+                  valorUnitario, 
+                  totalProductoRounded // Send rounded total
+              });
             }
           });
 
@@ -527,6 +540,11 @@
       function generatePDFFromData(orderData, orderNum = 'PENDIENTE') {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
+        
+        // Formatting options for currency without decimals
+        const formatOptionsNoDecimals = { style: 'currency', currency: 'CLP', minimumFractionDigits: 0, maximumFractionDigits: 0 };
+        // Keep formatting options with decimals for Unit Price if needed, or adjust
+        const formatOptionsUnit = { style: 'currency', currency: 'CLP' }; // Adjust if unit price should also be integer
 
         // --- Header ---
         doc.setTextColor(0, 0, 0); // Set text color to black globally initially
@@ -535,7 +553,7 @@
         doc.text('PIETTRA SPA', 14, 20);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text('RUT: 77.057.227-4', 14, 26);
+        doc.text('R.U.T. 77.057.227-4', 14, 26);
         doc.text('Fabricación y Comercialización de Materiales para la Construcción', 14, 30);
         doc.text('Panamericana Norte 18.800, Lote 4', 14, 34);
         doc.text('Lampa Santiago', 14, 38);
@@ -623,19 +641,22 @@
         const tableBody = orderData.products.map((item) => {
           const totalProducto = item.cantidad * item.valorUnitario;
           subtotalGeneral += totalProducto;
+          const totalProductoRounded = Math.round(totalProducto); // Round product total
           // Added item.uMedida to the row data
           return [
             item.cantidad,
             item.uMedida, // New UM column data
             item.descripcion,
-            `$ ${Number(item.valorUnitario).toLocaleString('es-CL')}`,
-            `$ ${totalProducto.toLocaleString('es-CL')}`,
+            // Format unit price - decide if it needs decimals or not
+            Number(item.valorUnitario).toLocaleString('es-CL', formatOptionsUnit), 
+            // Format total product price without decimals
+            totalProductoRounded.toLocaleString('es-CL', formatOptionsNoDecimals),
           ];
         });
         doc.autoTable({
           startY: Math.max(leftColumnY, yPos) + 10, 
           // Added 'UM' to the header
-          head: [['Cant.', 'UM', 'Descripción', 'Valor Unit.', 'Precio']],
+          head: [['CANT.', 'UM', 'DESCRIPCION', 'VALOR UNIT.', 'PRECIO']],
           body: tableBody,
           theme: 'grid',
           headStyles: {
@@ -643,7 +664,7 @@
             textColor: 255,            
             fontStyle: 'bold',
           },
-          styles: { fontSize: 9.5, cellPadding: 3, textColor: [0, 0, 0] },
+          styles: { fontSize: 10, cellPadding: 3, textColor: [0, 0, 0] },
           didParseCell: function(data) { 
               data.cell.styles.textColor = [0, 0, 0];
           },
@@ -662,21 +683,24 @@
         const footerStartY = finalY + 10;
 
         // --- Right Column: Totals ---
-        const iva = subtotalGeneral * 0.19;
-        const totalFinal = subtotalGeneral + iva;
+         // Round final totals
+         const subtotalRounded = Math.round(subtotalGeneral);
+         const ivaRounded = Math.round(subtotalRounded * 0.19); // Calculate IVA on rounded subtotal
+         const totalFinalRounded = subtotalRounded + ivaRounded;
+
         const totalsStartX = 125;
         const totalsBoxHeight = 20;
         doc.setFontSize(11);
         doc.text('Subtotal Neto', totalsStartX + 10, footerStartY + 4);
         doc.text(
-          `$ ${subtotalGeneral.toLocaleString('es-CL')}`,
+           subtotalRounded.toLocaleString('es-CL', formatOptionsNoDecimals), // Use rounded value
           totalsStartX + 60,
           footerStartY + 4,
           { align: 'right' }
         );
         doc.text('19% IVA', totalsStartX + 10, footerStartY + 10);
         doc.text(
-          `$ ${iva.toLocaleString('es-CL')}`,
+           ivaRounded.toLocaleString('es-CL', formatOptionsNoDecimals), // Use rounded value
           totalsStartX + 60,
           footerStartY + 10,
           { align: 'right' }
@@ -684,7 +708,7 @@
         doc.setFont('helvetica', 'bold');
         doc.text('Total', totalsStartX + 10, footerStartY + 16);
         doc.text(
-          `$ ${totalFinal.toLocaleString('es-CL')}`,
+           totalFinalRounded.toLocaleString('es-CL', formatOptionsNoDecimals), // Use rounded value
           totalsStartX + 60,
           footerStartY + 16,
           { align: 'right' }
