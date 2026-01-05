@@ -6,7 +6,7 @@
     <title>Generador de Órdenes de Compra</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <style>
       .product-line {
         display: grid;
@@ -15,206 +15,117 @@
         align-items: start;
       }
       .product-inputs {
-        /* Adjusted grid columns to fit UMedida */
         display: grid;
-        grid-template-columns: 3fr 1fr 0.5fr 1.5fr auto; 
+        /* Nueva estructura: Desc | Cant | UM | USD | CLP */
+        grid-template-columns: 2.5fr 0.6fr 0.6fr 0.8fr 1fr; 
         gap: 0.5rem;
         align-items: center;
       }
-      /* Style for the totals preview */
-       #totals-preview {
-            border: 1px solid #e5e7eb; /* gray-200 */
-            border-radius: 0.5rem; /* rounded-lg */
-            padding: 1rem; /* p-4 */
-            background-color: #f9fafb; /* gray-50 */
-            margin-top: 1.5rem; /* mt-6 */
-       }
-       #totals-preview div {
-           display: flex;
-           justify-content: space-between;
-           margin-bottom: 0.5rem; /* mb-2 */
-           padding-bottom: 0.5rem; /* pb-2 */
-           border-bottom: 1px solid #e5e7eb; /* border-b border-gray-200 */
-       }
-        #totals-preview div:last-child {
-             margin-bottom: 0;
-             padding-bottom: 0;
-             border-bottom: none;
+      #totals-preview {
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        background-color: #f9fafb;
+        margin-top: 1.5rem;
+      }
+      #totals-preview div {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      #totals-preview div:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+      #totals-preview span:first-child { font-weight: 600; color: #4b5563; }
+      #totals-preview span:last-child { font-weight: 700; color: #1f2937; }
+      #totals-preview div.total-final span:last-child { font-size: 1.125rem; color: #2563eb; }
+      
+      @media (max-width: 768px) {
+        .product-inputs {
+            grid-template-columns: 1fr 1fr; /* Mejor disposición en móviles */
+            gap: 0.5rem;
         }
-       #totals-preview span:first-child {
-           font-weight: 600; /* font-semibold */
-           color: #4b5563; /* gray-600 */
-       }
-        #totals-preview span:last-child {
-             font-weight: 700; /* font-bold */
-             color: #1f2937; /* gray-800 */
+        .product-inputs .description-input-container {
+            grid-column: span 2;
         }
-         #totals-preview div.total-final span:last-child {
-             font-size: 1.125rem; /* text-lg */
-         }
+      }
     </style>
   </head>
   <body class="bg-gray-100 text-gray-800 font-sans">
     <div class="container mx-auto p-4 md:p-8">
       <header class="mb-8 text-center">
-        <h1 class="text-4xl font-bold text-black">
-          Generador de Órdenes de Compra
-        </h1>
-        <p class="text-gray-800 mt-2">
-          Completa el formulario para guardar el pedido en Google Sheets y
-          generar el PDF.
-        </p>
+        <h1 class="text-3xl font-bold text-black">Generador de Órdenes de Compra</h1>
+        <p class="text-gray-600 mt-2">Completa el formulario para generar el PDF.</p>
       </header>
 
-      <div class="bg-white p-6 rounded-2xl shadow-lg mb-8 max-w-4xl mx-auto">
-        <h2 class="text-2xl font-semibold mb-4 border-b pb-2">
-          Agregar Nuevo Pedido
-        </h2>
+      <div class="bg-white p-6 rounded-2xl shadow-lg mb-8 max-w-6xl mx-auto">
+        <h2 class="text-xl font-semibold mb-4 border-b pb-2">Datos del Cliente</h2>
         <form id="new-order-form">
-          <div
-            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"
-          >
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <div class="relative">
-              <input
-                type="text"
-                name="razonSocial"
-                id="razonSocial"
-                placeholder="Razón Social"
-                class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
-                required
-                autocomplete="off"
-              />
-              <div
-                id="client-autocomplete-list"
-                class="absolute z-20 w-full bg-white border border-gray-300 rounded-b-lg mt-1 hidden max-h-60 overflow-y-auto"
-              ></div>
+              <input type="text" name="razonSocial" id="razonSocial" placeholder="Razón Social (Buscar...)" class="p-3 border rounded-lg w-full bg-blue-50 font-semibold" required autocomplete="off" />
+              <div id="client-autocomplete-list" class="absolute z-20 w-full bg-white border border-gray-300 rounded-b-lg mt-1 hidden max-h-60 overflow-y-auto shadow-xl"></div>
             </div>
-            <input
-              type="text"
-              name="rut"
-              placeholder="RUT"
-              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="text"
-              name="giro"
-              placeholder="Giro"
-              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="text"
-              name="direccion"
-              placeholder="Dirección Cliente"
-              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="text"
-              name="fono"
-              placeholder="Fono Cliente"
-              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="text"
-              name="nombreContacto"
-              placeholder="Nombre Contacto"
-              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="text"
-              name="fonoCorreo"
-              placeholder="Fono/Correo Contacto"
-              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="date"
-              name="fechaEntrega"
-              title="Fecha de Entrega"
-              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-            <input
-              type="text"
-              name="transporte"
-              placeholder="Transporte"
-              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="text"
-              name="autorizador"
-              placeholder="Autorizado por"
-              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="text"
-              name="condicionesPago"
-              placeholder="Cond. de Pago"
-              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <input type="text" name="rut" placeholder="RUT" class="p-3 border rounded-lg" />
+            <input type="text" name="giro" placeholder="Giro" class="p-3 border rounded-lg" />
+            <input type="text" name="direccion" placeholder="Dirección" class="p-3 border rounded-lg" />
+            <input type="text" name="fono" placeholder="Teléfono" class="p-3 border rounded-lg" />
+            <input type="text" name="nombreContacto" placeholder="Contacto" class="p-3 border rounded-lg" />
+            <input type="text" name="fonoCorreo" placeholder="Email / Fono" class="p-3 border rounded-lg" />
+            <div class="flex flex-col">
+                <span class="text-xs text-gray-500 ml-1">Fecha Entrega</span>
+                <input type="date" name="fechaEntrega" class="p-3 border rounded-lg" required />
+            </div>
+            <input type="text" name="transporte" placeholder="Transporte" class="p-3 border rounded-lg" />
+            <input type="text" name="autorizador" placeholder="Autorizado por" class="p-3 border rounded-lg" />
+            <input type="text" name="condicionesPago" placeholder="Cond. de Pago" class="p-3 border rounded-lg" />
           </div>
 
-          <div
-            class="flex items-center gap-4 mb-4 p-4 bg-gray-50 rounded-lg border"
-          >
-            <label for="dollar-rate" class="font-semibold text-gray-600"
-              >Valor Dólar (CLP):</label
-            >
-            <input
-              type="number"
-              id="dollar-rate"
-              placeholder="Ej: 950.50"
-              class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
-              step="any"
-            />
+          <div class="flex flex-col md:flex-row items-center gap-4 mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <div class="flex items-center gap-2">
+                <label for="dollar-rate" class="font-bold text-yellow-800">Tasa Dólar:</label>
+                <input type="number" id="dollar-rate" placeholder="Ej: 950" class="p-2 border rounded-lg w-28 font-bold text-right focus:ring-2 focus:ring-yellow-500" step="any" />
+            </div>
+            <span class="text-sm text-yellow-700">ℹ️ Ingresa el valor del dólar aquí. Luego, al escribir en la casilla "USD" de un producto, se calculará el precio en Pesos automáticamente.</span>
           </div>
 
-          <h3 class="text-xl font-semibold mb-2 mt-4 border-t pt-4">
-            Productos
-          </h3>
-          <div id="product-lines-container" class="space-y-4">
-            <!-- Product lines will be dynamically added here -->
+          <h3 class="text-xl font-semibold mb-2 border-t pt-4">Productos</h3>
+          
+          <div class="hidden md:grid grid-cols-[2.5fr_0.6fr_0.6fr_0.8fr_1fr_auto] gap-2 mb-2 px-1 text-sm font-semibold text-gray-500">
+            <div>Descripción</div>
+            <div class="text-center">Cant.</div>
+            <div class="text-center">UM</div>
+            <div class="text-right text-green-600">Precio USD</div>
+            <div class="text-right text-blue-600">Precio CLP (Neto)</div>
+            <div></div>
           </div>
-          <button
-            type="button"
-            id="add-product-btn"
-            class="mt-2 bg-blue-100 text-blue-700 font-semibold py-2 px-4 rounded-lg hover:bg-blue-200 transition-colors duration-300"
-          >
+
+          <div id="product-lines-container" class="space-y-4"></div>
+          
+          <button type="button" id="add-product-btn" class="mt-4 bg-blue-100 text-blue-700 font-semibold py-2 px-4 rounded-lg hover:bg-blue-200 w-full md:w-auto">
             + Agregar Producto
           </button>
           
-           <!-- Totals Preview Section -->
-           <div id="totals-preview" class="mt-6">
-                <h3 class="text-xl font-semibold mb-4 border-b pb-2">Vista Previa Totales</h3>
-                <div>
-                    <span>Subtotal Neto</span>
-                    <span id="preview-subtotal">$ 0</span>
-                </div>
-                <div>
-                    <span>19% IVA</span>
-                    <span id="preview-iva">$ 0</span>
-                </div>
-                <div class="total-final">
-                    <span>Total</span>
-                    <span id="preview-total">$ 0</span>
-                </div>
-            </div>
+           <div class="flex justify-end">
+               <div id="totals-preview" class="mt-6 w-full md:w-1/3">
+                    <h3 class="text-lg font-semibold mb-3 border-b pb-2">Resumen</h3>
+                    <div><span>Subtotal Neto</span><span id="preview-subtotal">$ 0</span></div>
+                    <div><span>19% IVA</span><span id="preview-iva">$ 0</span></div>
+                    <div class="total-final"><span>Total</span><span id="preview-total">$ 0</span></div>
+               </div>
+           </div>
 
           <div class="mt-6">
-            <h3 class="text-xl font-semibold mb-2 mt-4 border-t pt-4">
-              Observaciones
-            </h3>
-            <textarea
-              name="observaciones"
-              placeholder="Añadir observaciones a la orden de compra..."
-              class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full h-24"
-            ></textarea>
+            <h3 class="text-xl font-semibold mb-2 mt-4 border-t pt-4">Observaciones</h3>
+            <textarea name="observaciones" placeholder="Observaciones..." class="p-3 border rounded-lg w-full h-24"></textarea>
           </div>
 
-          <div class="text-right mt-6">
-            <button
-              type="submit"
-              id="submit-button"
-              class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-300"
-            >
+          <div class="text-right mt-8">
+            <button type="submit" id="submit-button" class="w-full md:w-auto bg-green-600 text-white font-bold py-4 px-8 rounded-lg hover:bg-green-700 shadow-md">
               Guardar Pedido y Generar PDF
             </button>
           </div>
@@ -223,565 +134,323 @@
     </div>
 
     <script>
-      const productLinesContainer = document.getElementById(
-        'product-lines-container'
-      );
+      const productLinesContainer = document.getElementById('product-lines-container');
       const addProductBtn = document.getElementById('add-product-btn');
       const orderForm = document.getElementById('new-order-form');
       const submitButton = document.getElementById('submit-button');
       const dollarRateInput = document.getElementById('dollar-rate');
-
       const razonSocialInput = document.getElementById('razonSocial');
-      const clientAutocompleteList = document.getElementById(
-        'client-autocomplete-list'
-      );
+      const clientAutocompleteList = document.getElementById('client-autocomplete-list');
       
-      // Elements for totals preview
       const previewSubtotalEl = document.getElementById('preview-subtotal');
       const previewIvaEl = document.getElementById('preview-iva');
       const previewTotalEl = document.getElementById('preview-total');
 
-
       let clientsWithData = [];
       let currentClientProducts = [];
-      const googleWebAppUrl =
-        'https://script.google.com/macros/s/AKfycby6dRXufxP2lVVn7S9SzmE_TMhji3l3IscJu-QnyYJjWC7Is-C7SOzxe7CsrziGTSRN7g/exec';
+      
+      const googleWebAppUrl = 'https://script.google.com/macros/s/AKfycby6dRXufxP2lVVn7S9SzmE_TMhji3l3IscJu-QnyYJjWC7Is-C7SOzxe7CsrziGTSRN7g/exec';
 
-      // --- Autocomplete Logic ---
+      // --- Fetch Data ---
       async function fetchData() {
         try {
           const response = await fetch(googleWebAppUrl);
-          if (!response.ok) throw new Error('Failed to fetch data');
+          if (!response.ok) throw new Error('Error de red');
           clientsWithData = await response.json();
-        } catch (error) {
-          console.error('Error fetching data for autocomplete:', error);
-          alert(
-            'No se pudo cargar la lista de clientes. Verifique la URL del script y que esté implementado.'
-          );
-        }
+        } catch (error) { console.error('Error fetching data:', error); }
       }
 
-      // Client Autocomplete
+      // --- Autocomplete Clientes ---
       razonSocialInput.addEventListener('input', () => {
         currentClientProducts = [];
         const inputText = razonSocialInput.value.toLowerCase();
         clientAutocompleteList.innerHTML = '';
-        if (!inputText) {
-          clientAutocompleteList.classList.add('hidden');
-          return;
-        }
+        if (!inputText) { clientAutocompleteList.classList.add('hidden'); return; }
 
-        const suggestions = clientsWithData.filter((client) =>
-          String(client.razonSocial).toLowerCase().includes(inputText)
-        );
+        const suggestions = clientsWithData.filter((client) => String(client.razonSocial).toLowerCase().includes(inputText));
 
         if (suggestions.length > 0) {
           suggestions.forEach((suggestion) => {
             const div = document.createElement('div');
             div.textContent = suggestion.razonSocial;
-            div.className = 'p-2 hover:bg-gray-200 cursor-pointer';
+            div.className = 'p-3 hover:bg-blue-100 cursor-pointer border-b border-gray-100 text-sm';
             div.addEventListener('click', () => {
               orderForm.razonSocial.value = suggestion.razonSocial;
-              orderForm.rut.value = suggestion.rut;
-              orderForm.giro.value = suggestion.giro;
-              orderForm.direccion.value = suggestion.direccion;
-              orderForm.fono.value = suggestion.fono;
-              orderForm.nombreContacto.value = suggestion.nombreContacto;
-              orderForm.fonoCorreo.value = suggestion.fonoCorreo;
-              orderForm.transporte.value = suggestion.transporte;
-              orderForm.autorizador.value = suggestion.autorizador;
-              orderForm.condicionesPago.value = suggestion.condicionesPago;
-
+              orderForm.rut.value = suggestion.rut || '';
+              orderForm.giro.value = suggestion.giro || '';
+              orderForm.direccion.value = suggestion.direccion || '';
+              orderForm.fono.value = suggestion.fono || '';
+              orderForm.nombreContacto.value = suggestion.nombreContacto || '';
+              orderForm.fonoCorreo.value = suggestion.fonoCorreo || '';
+              orderForm.transporte.value = suggestion.transporte || '';
+              orderForm.autorizador.value = suggestion.autorizador || '';
+              orderForm.condicionesPago.value = suggestion.condicionesPago || '';
               currentClientProducts = suggestion.products || [];
               clientAutocompleteList.classList.add('hidden');
             });
             clientAutocompleteList.appendChild(div);
           });
           clientAutocompleteList.classList.remove('hidden');
-        } else {
-          clientAutocompleteList.classList.add('hidden');
-        }
+        } else { clientAutocompleteList.classList.add('hidden'); }
       });
 
-      // --- Update Totals Preview Function ---
+      // --- Actualizar Totales ---
       function updateTotalsPreview() {
           let subtotalGeneral = 0;
-          const productLines = productLinesContainer.querySelectorAll('.product-line');
-          productLines.forEach(line => {
-              const cantidadInput = line.querySelector('[name="cantidad"]');
-              const valorUnitarioInput = line.querySelector('[name="valorUnitario"]');
-              const cantidad = parseFloat(cantidadInput.value) || 0;
-              const valorUnitario = parseFloat(valorUnitarioInput.value) || 0;
-              subtotalGeneral += cantidad * valorUnitario;
+          productLinesContainer.querySelectorAll('.product-line').forEach(line => {
+              const cantidad = parseFloat(line.querySelector('[name="cantidad"]').value) || 0;
+              const precio = parseFloat(line.querySelector('[name="valorUnitario"]').value) || 0;
+              subtotalGeneral += cantidad * precio;
           });
-
-          // Round values
           const subtotalRounded = Math.round(subtotalGeneral);
-          const ivaRounded = Math.round(subtotalRounded * 0.19); // Calculate IVA on rounded subtotal
+          const ivaRounded = Math.round(subtotalRounded * 0.19);
           const totalFinalRounded = subtotalRounded + ivaRounded;
-
-          // Format without decimals
-          const formatOptions = { style: 'currency', currency: 'CLP', minimumFractionDigits: 0, maximumFractionDigits: 0 };
-
-          previewSubtotalEl.textContent = subtotalRounded.toLocaleString('es-CL', formatOptions);
-          previewIvaEl.textContent = ivaRounded.toLocaleString('es-CL', formatOptions);
-          previewTotalEl.textContent = totalFinalRounded.toLocaleString('es-CL', formatOptions);
+          const fmt = { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 };
+          previewSubtotalEl.textContent = subtotalRounded.toLocaleString('es-CL', fmt);
+          previewIvaEl.textContent = ivaRounded.toLocaleString('es-CL', fmt);
+          previewTotalEl.textContent = totalFinalRounded.toLocaleString('es-CL', fmt);
       }
 
-
-      // --- Product Line Logic ---
+      // --- Lógica de Líneas de Producto ---
       const addProductLine = () => {
-        const productLineId = `product-line-${Date.now()}`;
         const productLineDiv = document.createElement('div');
-        productLineDiv.className = 'product-line';
-        productLineDiv.id = productLineId;
-
-        // Added input for UMedida
+        productLineDiv.className = 'product-line bg-gray-50 p-2 rounded border border-gray-200';
+        
         productLineDiv.innerHTML = `
-                <div class="product-inputs">
-                    <div class="relative w-full">
-                        <input type="text" name="descripcion" placeholder="Descripción" class="p-2 border rounded-lg w-full description-input" required autocomplete="off">
-                        <div class="absolute z-10 w-full bg-white border border-gray-300 rounded-b-lg mt-1 hidden max-h-48 overflow-y-auto product-autocomplete-list"></div>
-                    </div>
-                    <input type="number" name="cantidad" placeholder="Cantidad" class="p-2 border rounded-lg w-full" required step="any">
-                    <input type="text" name="uMedida" placeholder="UM" class="p-2 border rounded-lg w-full"> 
-                    <input type="number" name="valorUnitario" placeholder="Valor Unitario" class="p-2 border rounded-lg w-full" required step="any" title="Ingrese el valor en USD y luego presione 'a CLP'">
-                    <button type="button" class="convert-price-btn bg-green-500 text-white font-semibold py-2 px-3 rounded-lg hover:bg-green-600 text-xs">a CLP</button>
+            <div class="product-inputs">
+                <div class="relative w-full description-input-container">
+                    <input type="text" name="descripcion" placeholder="Descripción" class="p-2 border rounded w-full description-input text-sm font-medium" required autocomplete="off">
+                    <div class="absolute z-10 w-full bg-white border border-gray-300 rounded-b shadow-lg mt-1 hidden max-h-48 overflow-y-auto product-autocomplete-list"></div>
                 </div>
-                <button type="button" class="remove-product-btn bg-red-500 text-white font-bold w-8 h-8 rounded-full hover:bg-red-600 mt-1">X</button>
-            `;
+                <input type="number" name="cantidad" placeholder="Cant." class="p-2 border rounded w-full text-sm text-center" required step="any">
+                
+                <input type="text" name="uMedida" placeholder="UM" class="p-2 border rounded w-full text-sm text-center uppercase bg-yellow-50 focus:bg-white border-yellow-200" title="Verificar UM"> 
+                
+                <input type="number" name="valorUSD" placeholder="USD" class="p-2 border border-green-200 text-green-700 rounded w-full text-sm text-right" step="any">
+                
+                <input type="number" name="valorUnitario" placeholder="CLP" class="p-2 border border-blue-200 text-blue-700 rounded w-full text-sm text-right font-bold" required step="any">
+            </div>
+            <button type="button" class="remove-product-btn bg-red-100 text-red-600 font-bold w-8 h-8 rounded hover:bg-red-200 flex items-center justify-center mt-1">✕</button>
+        `;
         productLinesContainer.appendChild(productLineDiv);
 
         const descInput = productLineDiv.querySelector('.description-input');
-        const prodAutocompleteList = productLineDiv.querySelector(
-          '.product-autocomplete-list'
-        );
+        const prodAutocompleteList = productLineDiv.querySelector('.product-autocomplete-list');
         const cantidadInput = productLineDiv.querySelector('[name="cantidad"]');
-        const valorUnitarioInput = productLineDiv.querySelector(
-          '[name="valorUnitario"]'
-        );
-        const uMedidaInput = productLineDiv.querySelector('[name="uMedida"]'); // Get UMedida input
+        const uMedidaInput = productLineDiv.querySelector('[name="uMedida"]');
+        
+        const valorUSDInput = productLineDiv.querySelector('[name="valorUSD"]');
+        const valorUnitarioInput = productLineDiv.querySelector('[name="valorUnitario"]');
 
-        // Add listeners to update totals on input change
+        // Recálculo de totales
         cantidadInput.addEventListener('input', updateTotalsPreview);
-        valorUnitarioInput.addEventListener('input', updateTotalsPreview);
+        valorUnitarioInput.addEventListener('input', () => {
+             // Si el usuario escribe manualmente en CLP, borramos el USD para evitar confusión
+             // valorUSDInput.value = ''; 
+             updateTotalsPreview();
+        });
 
+        // --- LÓGICA DE CONVERSIÓN INTUITIVA ---
+        valorUSDInput.addEventListener('input', function() {
+            const dollarRate = parseFloat(dollarRateInput.value);
+            const usdValue = parseFloat(this.value);
 
+            if (!dollarRate || dollarRate <= 0) {
+                alert("Primero ingresa la Tasa del Dólar en el recuadro amarillo superior.");
+                this.value = '';
+                dollarRateInput.focus();
+                return;
+            }
+
+            if (!isNaN(usdValue)) {
+                // Cálculo automático: USD * Tasa
+                const clpValue = Math.round(usdValue * dollarRate);
+                valorUnitarioInput.value = clpValue;
+                updateTotalsPreview();
+            } else {
+                valorUnitarioInput.value = '';
+                updateTotalsPreview();
+            }
+        });
+
+        // Autocompletado Producto
         descInput.addEventListener('input', () => {
           const inputText = descInput.value.toLowerCase();
           prodAutocompleteList.innerHTML = '';
-          if (!inputText || currentClientProducts.length === 0) {
-            prodAutocompleteList.classList.add('hidden');
-            return;
-          }
+          if (!inputText || currentClientProducts.length === 0) { prodAutocompleteList.classList.add('hidden'); return; }
 
-          const suggestions = currentClientProducts.filter((product) =>
-            String(product.descripcion).toLowerCase().includes(inputText)
-          );
+          const suggestions = currentClientProducts.filter((product) => String(product.descripcion).toLowerCase().includes(inputText));
 
           if (suggestions.length > 0) {
             suggestions.forEach((suggestion) => {
               const div = document.createElement('div');
               div.textContent = suggestion.descripcion;
-              div.className = 'p-2 hover:bg-gray-200 cursor-pointer text-sm';
+              div.className = 'p-2 hover:bg-gray-100 cursor-pointer text-xs border-b';
               div.addEventListener('click', () => {
                 descInput.value = suggestion.descripcion;
-                cantidadInput.value = suggestion.lastCantidad;
-                uMedidaInput.value = suggestion.lastUMedida; // Autocomplete UMedida
-                valorUnitarioInput.value = suggestion.lastValorUnitario;
+                cantidadInput.value = suggestion.lastCantidad || '';
+                
+                // IMPORTANTE: NO rellenamos la UM automáticamente
+                uMedidaInput.value = ''; 
+                uMedidaInput.focus(); // Ponemos el foco ahí para obligar a escribir
+
+                // Rellenamos el precio CLP histórico si existe
+                valorUnitarioInput.value = suggestion.lastValorUnitario || '';
+                
                 prodAutocompleteList.classList.add('hidden');
-                updateTotalsPreview(); // Update totals after autocomplete
+                updateTotalsPreview();
               });
               prodAutocompleteList.appendChild(div);
             });
             prodAutocompleteList.classList.remove('hidden');
-          } else {
-            prodAutocompleteList.classList.add('hidden');
-          }
+          } else { prodAutocompleteList.classList.add('hidden'); }
         });
-        updateTotalsPreview(); // Update totals when a new line is added
       };
 
       document.addEventListener('click', function (e) {
         if (!e.target.closest('.relative')) {
-          document
-            .querySelectorAll(
-              '.product-autocomplete-list, #client-autocomplete-list'
-            )
-            .forEach((list) => {
-              list.classList.add('hidden');
-            });
+          document.querySelectorAll('.product-autocomplete-list, #client-autocomplete-list').forEach(l => l.classList.add('hidden'));
         }
       });
 
-      document.addEventListener('DOMContentLoaded', fetchData);
-
       productLinesContainer.addEventListener('click', function (event) {
-        if (event.target.classList.contains('remove-product-btn')) {
-          event.target.closest('.product-line').remove();
-          updateTotalsPreview(); // Update totals when a line is removed
-        }
-        if (event.target.classList.contains('convert-price-btn')) {
-          const dollarRate = parseFloat(dollarRateInput.value);
-          if (isNaN(dollarRate) || dollarRate <= 0) {
-            alert('Por favor, ingrese un valor de dólar válido.');
-            dollarRateInput.focus();
-            return;
-          }
-          const productInputs = event.target.closest('.product-inputs');
-          const unitValueInput = productInputs.querySelector(
-            '[name="valorUnitario"]'
-          );
-          const unitValueUSD = parseFloat(unitValueInput.value);
-          if (isNaN(unitValueUSD)) {
-            alert('Por favor, ingrese un valor unitario para convertir.');
-            unitValueInput.focus();
-            return;
-          }
-          unitValueInput.value = (unitValueUSD * dollarRate).toFixed(2); // Keep decimals here for potential intermediate calculations
-          updateTotalsPreview(); // Update totals preview (which will round)
+        if (event.target.closest('.remove-product-btn')) {
+          const line = event.target.closest('.product-line');
+          if (productLinesContainer.children.length > 1) line.remove();
+          else line.querySelectorAll('input').forEach(i => i.value = '');
+          updateTotalsPreview();
         }
       });
 
       addProductBtn.addEventListener('click', addProductLine);
-      addProductLine(); // Add the initial product line
+      document.addEventListener('DOMContentLoaded', () => { fetchData(); addProductLine(); });
 
-      // --- Form Submission Logic ---
+      // --- Enviar Formulario ---
       orderForm.addEventListener('submit', async function (event) {
         event.preventDefault();
-        submitButton.disabled = true;
-        submitButton.innerText = 'Guardando...';
+        if(confirm("¿Generar Orden de Compra?")) {
+            submitButton.disabled = true;
+            submitButton.innerText = 'Procesando...';
+            
+            const formData = new FormData(orderForm);
+            const orderData = {
+              fechaEmision: new Date().toISOString().split('T')[0],
+              fechaEntrega: formData.get('fechaEntrega'),
+              nombreContacto: formData.get('nombreContacto'),
+              fonoCorreo: formData.get('fonoCorreo'),
+              razonSocial: formData.get('razonSocial'),
+              rut: formData.get('rut'),
+              giro: formData.get('giro'),
+              direccion: formData.get('direccion'),
+              fono: formData.get('fono'),
+              transporte: formData.get('transporte'),
+              autorizador: formData.get('autorizador'),
+              condicionesPago: formData.get('condicionesPago'),
+              observaciones: formData.get('observaciones'),
+            };
 
-        const formData = new FormData(orderForm);
-        const orderData = {
-          fechaEmision: new Date().toISOString().split('T')[0],
-          fechaEntrega: formData.get('fechaEntrega'),
-          nombreContacto: formData.get('nombreContacto'),
-          fonoCorreo: formData.get('fonoCorreo'),
-          razonSocial: formData.get('razonSocial'),
-          rut: formData.get('rut'),
-          giro: formData.get('giro'),
-          direccion: formData.get('direccion'),
-          fono: formData.get('fono'),
-          transporte: formData.get('transporte'),
-          autorizador: formData.get('autorizador'),
-          condicionesPago: formData.get('condicionesPago'),
-          observaciones: formData.get('observaciones'),
-        };
+            const productsData = [];
+            let hayErrores = false;
+            productLinesContainer.querySelectorAll('.product-line').forEach((line) => {
+              const descripcion = line.querySelector('[name="descripcion"]').value;
+              const cantidad = parseFloat(line.querySelector('[name="cantidad"]').value);
+              const uMedida = line.querySelector('[name="uMedida"]').value;
+              const valorUnitario = parseFloat(line.querySelector('[name="valorUnitario"]').value);
 
-        const productsData = [];
-        productLinesContainer
-          .querySelectorAll('.product-line')
-          .forEach((line) => {
-            const descripcion = line.querySelector(
-              '[name="descripcion"]'
-            ).value;
-            const cantidad = parseFloat(
-              line.querySelector('[name="cantidad"]').value
-            );
-            const uMedida = line.querySelector('[name="uMedida"]').value; // Get UMedida value
-            const valorUnitario = parseFloat(
-              line.querySelector('[name="valorUnitario"]').value
-            );
-            // Include uMedida in validation and data push
-            if (descripcion && !isNaN(cantidad) && uMedida && !isNaN(valorUnitario)) {
-              // Round total product price before sending
-              const totalProductoRounded = Math.round(cantidad * valorUnitario);
-              productsData.push({ 
-                  descripcion, 
-                  cantidad, 
-                  uMedida, 
-                  valorUnitario, 
-                  totalProductoRounded // Send rounded total
-              });
+              if (descripcion && cantidad > 0 && valorUnitario >= 0) {
+                if(!uMedida.trim()) {
+                    alert(`¡Atención! Falta la Unidad de Medida (UM) para: ${descripcion}`);
+                    line.querySelector('[name="uMedida"]').focus();
+                    hayErrores = true;
+                    return;
+                }
+                productsData.push({ descripcion, cantidad, uMedida, valorUnitario });
+              }
+            });
+
+            if (hayErrores || productsData.length === 0) {
+                if(productsData.length === 0) alert('Agrega al menos un producto válido.');
+                submitButton.disabled = false; submitButton.innerText = 'Guardar Pedido y Generar PDF'; return;
             }
-          });
 
-        if (productsData.length === 0) {
-          alert('Debes agregar al menos un producto válido (con UM).');
-          submitButton.disabled = false;
-          submitButton.innerText = 'Guardar Pedido y Generar PDF';
-          return;
-        }
+            const payload = { ...orderData, products: productsData };
 
-        const payload = { ...orderData, products: productsData };
-
-        try {
-          const response = await fetch(googleWebAppUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(payload),
-          });
-          if (!response.ok) throw new Error(`Server error: ${response.status}`);
-          const result = await response.json();
-          if (result.status === 'success') {
-            alert('¡Pedido guardado exitosamente en Google Sheets!');
-            generatePDFFromData(payload, result.orderNumber);
-            orderForm.reset();
-            productLinesContainer.innerHTML = '';
-            addProductLine(); // Add back one initial line
-          } else {
-            throw new Error(
-              result.message || 'Google Script returned an error.'
-            );
-          }
-        } catch (error) {
-          console.error('Error saving to Google Sheets:', error);
-          alert(
-            `Hubo un error al guardar el pedido. Revisa las instrucciones y la consola para más detalles.`
-          );
-        } finally {
-          submitButton.disabled = false;
-          submitButton.innerText = 'Guardar Pedido y Generar PDF';
+            try {
+              const response = await fetch(googleWebAppUrl, { method: 'POST', body: JSON.stringify(payload) });
+              const result = await response.json(); 
+              if (result.status === 'success') {
+                generatePDFFromData(payload, result.orderNumber);
+                orderForm.reset();
+                productLinesContainer.innerHTML = ''; addProductLine();
+                document.getElementById('preview-total').textContent = '$ 0';
+              } else throw new Error(result.message);
+            } catch (error) {
+              console.error(error);
+              alert('Error de conexión. Generando PDF de respaldo...');
+              generatePDFFromData(payload, "ERROR_RED");
+            } finally {
+              submitButton.disabled = false; submitButton.innerText = 'Guardar Pedido y Generar PDF';
+            }
         }
       });
 
-      // --- PDF Generation Logic ---
-      function generatePDFFromData(orderData, orderNum = 'PENDIENTE') {
+      // --- Generar PDF (Optimizada) ---
+      function generatePDFFromData(orderData, orderNum) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         
-        // Formatting options for currency without decimals
-        const formatOptionsNoDecimals = { style: 'currency', currency: 'CLP', minimumFractionDigits: 0, maximumFractionDigits: 0 };
-        // Keep formatting options with decimals for Unit Price if needed, or adjust
-        const formatOptionsUnit = { style: 'currency', currency: 'CLP' }; // Adjust if unit price should also be integer
+        const fmtInt = { style: 'currency', currency: 'CLP', minimumFractionDigits: 0, maximumFractionDigits: 0 };
+        const fmtUnit = { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 };
 
-        // --- Header ---
-        doc.setTextColor(0, 0, 0); // Set text color to black globally initially
-        doc.setFontSize(17);
-        doc.setFont('helvetica', 'bold');
-        doc.text('PIETTRA SPA', 14, 20);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text('R.U.T. 77.057.227-4', 14, 26);
-        doc.text('Fabricación y Comercialización de Materiales para la Construcción', 14, 30);
-        doc.text('Panamericana Norte 18.800, Lote 4', 14, 34);
-        doc.text('Lampa Santiago', 14, 38);
-        doc.text('Teléfono 9 9323 3304', 14, 42);
+        doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.text('PIETTRA SPA', 14, 20);
+        doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+        doc.text('R.U.T. 77.057.227-4', 14, 25);
+        doc.text('Panamericana Norte 18.800, Lote 4, Lampa', 14, 29);
         
         doc.rect(130, 15, 65, 20);
-        doc.setFontSize(17);
-        doc.setFont('helvetica', 'bold');
-        doc.text('ORDEN DE COMPRA', 133, 24);
-        doc.setFontSize(15);
-        doc.text(`N° ${orderNum}`, 153, 32);
+        doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+        doc.text('ORDEN DE COMPRA', 162.5, 22, { align: 'center' });
+        doc.setFontSize(12); doc.text(`N° ${orderNum}`, 162.5, 30, { align: 'center' });
 
-        // --- Info Blocks ---
-        let leftColumnY = 65;
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text('EMITIDO PARA:', 14, leftColumnY);
-        leftColumnY += 6;
-        doc.setFont('helvetica', 'normal');
+        let y = 50;
+        doc.setFontSize(10); doc.text(`Cliente: ${orderData.razonSocial.substring(0,50)}`, 14, y);
+        doc.text(`RUT: ${orderData.rut || ''}`, 14, y+5);
+        doc.text(`Fecha Ent: ${orderData.fechaEntrega}`, 14, y+10);
         
-        const leftColumnMaxWidth = 90;
+        const tableBody = orderData.products.map(item => [
+            item.cantidad, item.uMedida, item.descripcion,
+            item.valorUnitario.toLocaleString('es-CL', fmtUnit),
+            Math.round(item.cantidad * item.valorUnitario).toLocaleString('es-CL', fmtInt)
+        ]);
 
-        doc.text(orderData.razonSocial, 14, leftColumnY);
-        leftColumnY += 6;
-        doc.text(`${orderData.rut || ''}`, 14, leftColumnY);
-        leftColumnY += 6;
-
-        if (orderData.direccion) {
-            const direccionLines = doc.splitTextToSize(`${orderData.direccion}`, leftColumnMaxWidth);
-            doc.text(direccionLines, 14, leftColumnY);
-            leftColumnY += direccionLines.length * 5; 
-        }
-
-        doc.text(`${orderData.fono || ''}`, 14, leftColumnY);
-        leftColumnY += 6;
-
-        if (orderData.giro) {
-            const giroLines = doc.splitTextToSize(`${orderData.giro}`, leftColumnMaxWidth);
-            doc.text(giroLines, 14, leftColumnY);
-            leftColumnY += giroLines.length * 5;
-        }
-
-
-        let yPos = 65;
-        const detailsX = 120; 
-        const valueX = 150; 
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Emisión:', detailsX, yPos);
-        doc.setFont('helvetica', 'normal');
-        doc.text(orderData.fechaEmision, valueX, yPos);
-        yPos += 6;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Autorizado por:', detailsX, yPos);
-        doc.setFont('helvetica', 'normal');
-        doc.text(orderData.autorizador || '', valueX, yPos);
-        yPos += 6;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Transporte:', detailsX, yPos);
-        doc.setFont('helvetica', 'normal');
-        doc.text(orderData.transporte || '', valueX, yPos);
-        yPos += 6;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Cond. de pago:', detailsX, yPos);
-        doc.setFont('helvetica', 'normal');
-        doc.text(orderData.condicionesPago || '', valueX, yPos);
-        yPos += 6;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Contacto:', detailsX, yPos);
-        doc.setFont('helvetica', 'normal');
-        doc.text(orderData.nombreContacto || '', valueX, yPos);
-        yPos += 6;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Cel./Email:', detailsX, yPos);
-        doc.setFont('helvetica', 'normal');
-        doc.text(orderData.fonoCorreo || '', valueX, yPos);
-        yPos += 6;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Fecha entrega:', detailsX, yPos);
-        doc.setFont('helvetica', 'normal');
-        doc.text(orderData.fechaEntrega || '', valueX, yPos);
-
-        // --- Products Table ---
-        let subtotalGeneral = 0;
-        const tableBody = orderData.products.map((item) => {
-          const totalProducto = item.cantidad * item.valorUnitario;
-          subtotalGeneral += totalProducto;
-          const totalProductoRounded = Math.round(totalProducto); // Round product total
-          // Added item.uMedida to the row data
-          return [
-            item.cantidad,
-            item.uMedida, // New UM column data
-            item.descripcion,
-            // Format unit price - decide if it needs decimals or not
-            Number(item.valorUnitario).toLocaleString('es-CL', formatOptionsUnit), 
-            // Format total product price without decimals
-            totalProductoRounded.toLocaleString('es-CL', formatOptionsNoDecimals),
-          ];
-        });
         doc.autoTable({
-          startY: Math.max(leftColumnY, yPos) + 10, 
-          // Added 'UM' to the header
-          head: [['Cant.', 'UM', 'Descripción', 'Valor Unit.', 'Precio']],
+          startY: y + 15,
+          head: [['Cant', 'UM', 'Descripción', 'P. Unit', 'Total']],
           body: tableBody,
           theme: 'grid',
-          headStyles: {
-            fillColor: [41, 128, 185], 
-            textColor: 255,            
-            fontStyle: 'bold',
-          },
-          styles: { fontSize: 10, cellPadding: 3, textColor: [0, 0, 0] },
-          didParseCell: function(data) { 
-              data.cell.styles.textColor = [0, 0, 0];
-          },
-          // Adjust column styles if needed to fit 'UM'
-          columnStyles: {
-            0: { cellWidth: 15 }, // CANT.
-            1: { cellWidth: 14 }, // UM (New)
-            2: { cellWidth: 'auto' }, // DESCRIPCION
-            3: { cellWidth: 25 }, // VALOR UNIT.
-            4: { cellWidth: 29 }  // PRECIO
-          }
+          headStyles: { fillColor: [41, 128, 185] },
+          columnStyles: { 0: {cellWidth: 15}, 1: {cellWidth: 15}, 3: {halign:'right'}, 4: {halign:'right'} }
         });
 
-        // --- Footer Section ---
-        let finalY = doc.autoTable.previous.finalY;
-        const footerStartY = finalY + 10;
+        let finalY = doc.lastAutoTable.finalY + 10;
+        if(finalY > 250) { doc.addPage(); finalY = 20; }
 
-        // --- Right Column: Totals ---
-         // Round final totals
-         const subtotalRounded = Math.round(subtotalGeneral);
-         const ivaRounded = Math.round(subtotalRounded * 0.19); // Calculate IVA on rounded subtotal
-         const totalFinalRounded = subtotalRounded + ivaRounded;
-
-        const totalsStartX = 125;
-        const totalsBoxHeight = 20;
-        doc.setFontSize(11);
-        doc.text('Subtotal Neto', totalsStartX + 10, footerStartY + 4);
-        doc.text(
-           subtotalRounded.toLocaleString('es-CL', formatOptionsNoDecimals), // Use rounded value
-          totalsStartX + 60,
-          footerStartY + 4,
-          { align: 'right' }
-        );
-        doc.text('19% IVA', totalsStartX + 10, footerStartY + 10);
-        doc.text(
-           ivaRounded.toLocaleString('es-CL', formatOptionsNoDecimals), // Use rounded value
-          totalsStartX + 60,
-          footerStartY + 10,
-          { align: 'right' }
-        );
+        let total = orderData.products.reduce((acc, item) => acc + (item.cantidad * item.valorUnitario), 0);
+        total = Math.round(total);
+        const iva = Math.round(total * 0.19);
+        
+        doc.text(`Neto: ${total.toLocaleString('es-CL', fmtInt)}`, 190, finalY, {align:'right'});
+        doc.text(`IVA (19%): ${iva.toLocaleString('es-CL', fmtInt)}`, 190, finalY+5, {align:'right'});
         doc.setFont('helvetica', 'bold');
-        doc.text('Total', totalsStartX + 10, footerStartY + 16);
-        doc.text(
-           totalFinalRounded.toLocaleString('es-CL', formatOptionsNoDecimals), // Use rounded value
-          totalsStartX + 60,
-          footerStartY + 16,
-          { align: 'right' }
-        );
-        doc.rect(totalsStartX, footerStartY - 2, 65, totalsBoxHeight + 2);
+        doc.text(`Total: ${(total+iva).toLocaleString('es-CL', fmtInt)}`, 190, finalY+10, {align:'right'});
 
-        // --- Left Column: User Observations ---
-        let observationsBoxHeight = 0;
-        if (orderData.observaciones) {
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'bold');
-          doc.text('OBSERVACIONES:', 14, footerStartY + 2); 
-          doc.setFont('helvetica', 'normal');
-          const obsLines = doc.splitTextToSize(orderData.observaciones, 105);
-          const textHeight = obsLines.length * 4;
-          observationsBoxHeight = textHeight + 12 > (totalsBoxHeight + 2) ? textHeight + 12 : (totalsBoxHeight + 2);
-          doc.text(obsLines, 14, footerStartY + 7);
-          doc.rect(12, footerStartY - 2, 110, observationsBoxHeight);
-        }
+        // Firmas
+        doc.line(30, finalY+40, 80, finalY+40); doc.text('Firma Carlos Ortiz', 55, finalY+45, {align:'center'});
+        doc.line(120, finalY+40, 170, finalY+40); doc.text('Firma Rolf Hoppe', 145, finalY+45, {align:'center'});
 
-        // --- Firmas ---
-        const tallestBoxHeight = Math.max(
-          observationsBoxHeight,
-          (totalsBoxHeight + 2)
-        );
-        const firmasY = footerStartY + tallestBoxHeight + 20;
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.line(30, firmasY, 80, firmasY);
-        doc.text('Firma Carlos Ortiz', 40, firmasY + 5);
-        doc.line(120, firmasY, 170, firmasY);
-        doc.text('Firma Rolf Hoppe', 130, firmasY + 5);
-
-        // --- Static Observations ---
-        const staticObsY = firmasY + 20;
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.text('OBSERVACIONES:', 14, staticObsY + 5); 
-        doc.setFont('helvetica', 'normal');
-
-        const staticText = [
-          'CORREO DE FACTURACION ELECTRONICA: intercambio@skualodte.cl',
-          'POR FAVOR CONFIRMAR RECEPCIÓN DE ESTE PEDIDO AL COMPRADOR/A',
-          'Dirección de despacho: Panamericana Norte 18.800, Lote 4 Lampa Santiago',
-          'Horario de recepción en bodega: Lunes a Jueves de 07:30 a 15:30, viernes de 07:30 a 14:30.',
-          'Para entregas fueras de horario por favor contactar a su comprador.',
-          'No se recibirán productos que no vengan con FACTURA y copia de la ORDEN de COMPRA correspondiente.',
-          'No se permite el ingreso a planta Piettra Spa, sin Elementos de Protección Personal (EPP) (casco, zapato de seguridad y chaleco reflectante).',
-          'En el caso de transportistas de productos químicos, estos deben contar con elementos de control de derrames y extintor.',
-        ];
-
-        let currentY = staticObsY + 10;
-        let totalStaticTextHeight = 0;
-        staticText.forEach((line) => {
-          const splitLines = doc.splitTextToSize(line, 180);
-          doc.text(splitLines, 14, currentY); 
-          const blockHeight = splitLines.length * 4;
-          currentY += blockHeight;
-          totalStaticTextHeight += blockHeight;
-        });
-
-        const staticBoxHeight = totalStaticTextHeight + 8;
-        doc.rect(12, staticObsY, 186, staticBoxHeight);
-
-        const clientNameForFile = orderData.razonSocial
-            .split(' ')[0]
-            .toLowerCase()
-            .replace(/[^a-z0-9]/gi, '');
-            
-        doc.save(`OC_${orderNum}_${clientNameForFile}.pdf`);
+        const safeName = (orderData.razonSocial || 'oc').replace(/[^a-z0-9]/gi, '_');
+        doc.save(`OC_${orderNum}_${safeName}.pdf`);
       }
     </script>
   </body>
 </html>
-
-
